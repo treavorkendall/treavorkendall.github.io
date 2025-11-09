@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Van der Waals Grapher</title>
+
+  <!-- Plotly from CDN.
+       For fully offline use:
+       1) Download plotly-latest.min.js
+       2) Replace this line with: <script src="plotly-latest.min.js"></script>
+  -->
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+
+  <style>
+    /* Light theme only */
+    :root{
+      --bg:#f7fafc;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --accent:#1f6feb;
+      --panel:#f1f5f9;
+      --border:#e2e8f0;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .wrap{
+      max-width:1200px;
+      margin:18px auto;
+      padding:16px;
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:12px;
+      padding:16px;
+      border:1px solid var(--border);
+      box-shadow:0 6px 18px rgba(15,23,42,0.06);
+    }
+
+    h1{
+      margin:0 0 10px 0;
+      font-size:20px;
+      font-weight:600;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    label{
+      font-size:13px;
+      color:var(--muted);
+      display:block;
+      margin-bottom:4px;
+    }
+
+    input,select{
+      width:100%;
+      padding:7px 9px;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:var(--panel);
+      color:var(--text);
+      box-sizing:border-box;
+      font-size:13px;
+      outline:none;
+    }
+
+    input:focus,select:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px rgba(31,111,235,0.12);
+      background:#ffffff;
+    }
+
+    .controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    button{
+      padding:8px 11px;
+      border-radius:9px;
+      border:none;
+      cursor:pointer;
+      font-weight:600;
+      font-size:12px;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+    }
+
+    .btn-primary{
+      background:var(--accent);
+      color:#ffffff;
+    }
+
+    .btn-ghost{
+      background:transparent;
+      color:var(--muted);
+      border:1px solid var(--border);
+    }
+
+    #plot{
+      width:100%;
+      height:640px;
+      border-radius:8px;
+      margin-top:6px;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 9px;
+      border-radius:999px;
+      background:var(--panel);
+      color:var(--muted);
+      font-size:11px;
+      border:1px solid var(--border);
+    }
+
+    .dataset-list{
+      max-height:120px;
+      overflow:auto;
+      padding:6px 8px;
+      margin-top:6px;
+      border-radius:8px;
+      background:var(--panel);
+      border:1px solid var(--border);
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .dataset-item{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:3px 0;
+      border-bottom:1px dashed rgba(148,163,253,0.12);
+    }
+
+    .dataset-item:last-child{
+      border-bottom:none;
+    }
+
+    .dataset-color{
+      width:11px;
+      height:11px;
+      border-radius:3px;
+      flex-shrink:0;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .footer{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:10px;
+      flex-wrap:wrap;
+    }
+
+    @media (max-width:960px){
+      .grid{grid-template-columns:1fr;}
+      .grid-2{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Van der Waals Grapher</h1>
+
+      <!-- Top controls -->
+      <div class="grid">
+        <div>
+          <label>Gas</label>
+          <select id="gas">
+            <option value="CO2" selected>CO₂</option>
+            <option value="N2">N₂</option>
+            <option value="O2">O₂</option>
+            <option value="CH4">CH₄</option>
+            <option value="H2">H₂</option>
+            <option value="NH3">NH₃</option>
+            <option value="He">He</option>
+            <option value="Ar">Ar</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Mode</label>
+          <select id="mode">
+            <option value="PV">P–V</option>
+            <option value="VP">V–P</option>
+            <option value="ZP" selected>Z–P</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Show Ideal</label>
+          <select id="showIdeal">
+            <option value="yes">Yes</option>
+            <option value="no" selected>No</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Sticky (keep curves)</label>
+          <select id="sticky">
+            <option value="yes">Yes</option>
+            <option value="no" selected>No</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Log X</label>
+          <select id="logX">
+            <option value="no" selected>No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Log Y</label>
+          <select id="logY">
+            <option value="no" selected>No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Points</label>
+          <input id="steps" type="number" value="200" min="10"/>
+        </div>
+
+        <div>
+          <label>n (mol)</label>
+          <input id="n" type="number" value="1" step="any" min="0.00001"/>
+        </div>
+
+        <div>
+          <label>T list (K) for Z–P</label>
+          <input id="tempList" type="text" value="200,300,1000"/>
+        </div>
+
+        <div>
+          <label>T (K) for P–V & V–P</label>
+          <input id="T_single" type="number" value="273"/>
+        </div>
+
+        <div>
+          <label>V min (L) for P–V</label>
+          <input id="Vmin" type="number" value="0.1" step="any"/>
+        </div>
+
+        <div>
+          <label>V max (L) for P–V</label>
+          <input id="Vmax" type="number" value="10" step="any"/>
+        </div>
+
+        <div>
+          <label>P min (atm)</label>
+          <input id="Pmin" type="number" value="1" step="any"/>
+        </div>
+
+        <div>
+          <label>P max (atm)</label>
+          <input id="Pmax" type="number" value="500" step="any"/>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;">
+          <div class="controls">
+            <button id="btnPlot" class="btn-primary">Plot</button>
+            <button id="btnPNG" class="btn-ghost">PNG</button>
+            <button id="btnCSV" class="btn-ghost">CSV</button>
+            <button id="btnClear" class="btn-ghost">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Datasets + tips -->
+      <div class="grid-2" style="margin-bottom:10px;">
+        <div>
+          <span class="chip">Datasets</span>
+          <div id="datasetList" class="dataset-list"></div>
+        </div>
+        <div>
+          <span class="chip">Tips</span>
+          <div class="muted" style="margin-top:6px;">
+            Default: CO₂, 273 K, Z vs P, 1–500 atm, ideal OFF, sticky OFF.
+            Add more gases or temperatures to compare; toggle log axes to explore behavior.
+          </div>
+        </div>
+      </div>
+
+      <!-- Plot -->
+      <div id="plot"></div>
+
+      <div class="footer">
+        <div class="muted">vdW: (P + a/V²)(V − b) = RT. Units: P (atm), V (L), T (K), n (mol).</div>
+        <div class="muted">Axes: P, V, Z (short labels) where Z ≡ PV/RT; ideal overlays when enabled.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------- Data & Helpers ---------- */
+
+const gasData = {
+  CO2:{a:3.592,b:0.0427},
+  N2:{a:1.390,b:0.0391},
+  O2:{a:1.360,b:0.0318},
+  CH4:{a:2.253,b:0.0428},
+  H2:{a:0.244,b:0.0266},
+  NH3:{a:4.170,b:0.0371},
+  He:{a:0.0341,b:0.0237},
+  Ar:{a:1.355,b:0.03201}
+};
+
+const R = 0.082057;
+const COLORS = ['#1f6feb','#06b6d4','#f97316','#e11d48','#10b981','#8b5cf6','#f59e0b','#14b8a6','#60a5fa','#fb7185'];
+
+function num(x, fallback=0){
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function f_vdw(V,P,a,b,n,T){
+  if (V <= n*b) return Number.POSITIVE_INFINITY;
+  return (n*R*T)/(V - n*b) - (a*n*n)/(V*V) - P;
+}
+
+function bisectSolveVForP(P,a,b,n,T,left,right,maxIter=80,tol=1e-9){
+  let fL = f_vdw(left,P,a,b,n,T);
+  let fR = f_vdw(right,P,a,b,n,T);
+  if (!isFinite(fL) || !isFinite(fR)) return null;
+
+  if (fL * fR > 0){
+    let found = false;
+    let hi = right;
+    for (let k=0;k<10;k++){
+      hi *= 2;
+      fR = f_vdw(hi,P,a,b,n,T);
+      if (!isFinite(fR)) continue;
+      if (fL * fR <= 0){ right = hi; found = true; break; }
+    }
+    if (!found) return null;
+  }
+
+  for (let i=0;i<maxIter;i++){
+    const mid = 0.5*(left+right);
+    const fM = f_vdw(mid,P,a,b,n,T);
+    if (!isFinite(fM)) return null;
+    if (Math.abs(fM) < tol) return mid;
+    if (fL * fM <= 0){
+      right = mid; fR = fM;
+    } else {
+      left = mid; fL = fM;
+    }
+  }
+  return 0.5*(left+right);
+}
+
+/* ---------- Dataset State ---------- */
+
+window._datasets = [];
+
+/* ---------- UI Helpers ---------- */
+
+function updateDatasetListUI(){
+  const list = document.getElementById('datasetList');
+  list.innerHTML = '';
+  if (!window._datasets.length){
+    list.innerHTML = '<div>No datasets yet.</div>';
+    return;
+  }
+  window._datasets.forEach(ds=>{
+    const row = document.createElement('div');
+    row.className = 'dataset-item';
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="dataset-color" style="background:${ds.color};"></div>
+        <div>${ds.name}</div>
+      </div>
+      <div><a href="#" data-id="${ds.id}" style="color:#ef4444;font-size:11px;">remove</a></div>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('a[data-id]').forEach(a=>{
+    a.onclick = (e)=>{
+      e.preventDefault();
+      const id = a.getAttribute('data-id');
+      window._datasets = window._datasets.filter(d=>d.id !== id);
+      replotFromDatasets();
+      updateDatasetListUI();
+    };
+  });
+}
+
+function clearDatasets(){
+  window._datasets = [];
+  updateDatasetListUI();
+  Plotly.purge('plot');
+}
+
+/* ---------- Main Plot Logic ---------- */
+
+function plotAction(){
+  const mode = document.getElementById('mode').value;
+  const gasKey = document.getElementById('gas').value;
+  const gas = gasData[gasKey];
+  if (!gas){ alert('Unknown gas'); return; }
+
+  const sticky = document.getElementById('sticky').value === 'yes';
+  const showIdeal = document.getElementById('showIdeal').value === 'yes';
+  const steps = Math.max(10, Math.round(num(document.getElementById('steps').value,200)));
+  const n = num(document.getElementById('n').value,1);
+  const a = gas.a, b = gas.b;
+
+  if (!sticky){
+    window._datasets = [];
+  }
+
+  const baseColor = COLORS[window._datasets.length % COLORS.length];
+  const idBase = 'ds' + Date.now();
+
+  if (mode === 'PV'){
+    const T = num(document.getElementById('T_single').value,273);
+    const Vmin = num(document.getElementById('Vmin').value,0.1);
+    const Vmax = num(document.getElementById('Vmax').value,10);
+    if (Vmax <= Vmin){ alert('Vmax must be > Vmin'); return; }
+
+    const V = [], P_vdw = [], P_ideal = [];
+    for (let i=0;i<=steps;i++){
+      const Vi = Vmin + (Vmax - Vmin)*i/steps;
+      V.push(Vi);
+      if (Vi <= n*b + 1e-12){
+        P_vdw.push(null);
+        P_ideal.push(null);
+      } else {
+        const Pvdw = (n*R*T)/(Vi - n*b) - (a*n*n)/(Vi*Vi);
+        const Pid = (n*R*T)/Vi;
+        P_vdw.push(Pvdw);
+        P_ideal.push(Pid);
+      }
+    }
+
+    window._datasets.push({
+      id: idBase,
+      name: `${gasKey} vdW P–V T=${T}K`,
+      mode: 'PV',
+      x: V,
+      y: P_vdw,
+      color: baseColor
+    });
+
+    if (showIdeal){
+      window._datasets.push({
+        id: idBase + '-ideal',
+        name: `${gasKey} Ideal P–V T=${T}K`,
+        mode: 'PV',
+        x: V,
+        y: P_ideal,
+        color: '#999999'
+      });
+    }
+  }
+
+  else if (mode === 'VP'){
+    const T = num(document.getElementById('T_single').value,273);
+    const Pmin = num(document.getElementById('Pmin').value,1);
+    const Pmax = num(document.getElementById('Pmax').value,500);
+    if (Pmax <= Pmin){ alert('Pmax must be > Pmin'); return; }
+
+    const P = [], V_vdw = [], V_ideal = [];
+    for (let i=0;i<=steps;i++){
+      const Pval = Pmin + (Pmax - Pmin)*i/steps;
+      P.push(Pval);
+      const left = n*b + 1e-12;
+      let right = Math.max((n*R*T)/Math.max(Pval,1e-9)*10, left+1);
+      right = Math.max(right, 100);
+      const Vsol = bisectSolveVForP(Pval,a,b,n,T,left,right,100);
+      if (Vsol === null){
+        V_vdw.push(null);
+        V_ideal.push((n*R*T)/Math.max(Pval,1e-9));
+      } else {
+        V_vdw.push(Vsol);
+        V_ideal.push((n*R*T)/Math.max(Pval,1e-9));
+      }
+    }
+
+    window._datasets.push({
+      id: idBase,
+      name: `${gasKey} vdW V–P T=${T}K`,
+      mode: 'VP',
+      x: P,
+      y: V_vdw,
+      color: baseColor
+    });
+
+    if (showIdeal){
+      window._datasets.push({
+        id: idBase + '-ideal',
+        name: `${gasKey} Ideal V–P T=${T}K`,
+        mode: 'VP',
+        x: P,
+        y: V_ideal,
+        color: '#999999'
+      });
+    }
+  }
+
+  else if (mode === 'ZP'){
+    const Pmin = num(document.getElementById('Pmin').value,1);
+    const Pmax = num(document.getElementById('Pmax').value,500);
+    if (Pmax <= Pmin){ alert('Pmax must be > Pmin'); return; }
+
+    const temps = document.getElementById('tempList').value
+      .split(',')
+      .map(s=>num(s.trim(),NaN))
+      .filter(v=>Number.isFinite(v));
+
+    if (!temps.length){ alert('Enter at least one temperature'); return; }
+
+    temps.forEach((T, idx) => {
+      const P = [], Z_vdw = [];
+      for (let i=0;i<=steps;i++){
+        const Pval = Pmin + (Pmax - Pmin)*i/steps;
+        P.push(Pval);
+        const left = n*b + 1e-12;
+        let right = Math.max((n*R*T)/Math.max(Pval,1e-9)*10, left+1);
+        right = Math.max(right, 100);
+        const Vsol = bisectSolveVForP(Pval,a,b,n,T,left,right,100);
+        if (Vsol === null){
+          Z_vdw.push(null);
+        } else {
+          const Z = (Pval * Vsol) / (R * T);
+          Z_vdw.push(Z);
+        }
+      }
+
+      const color = COLORS[(window._datasets.length + idx) % COLORS.length];
+
+      window._datasets.push({
+        id: idBase + '-T' + T,
+        name: `${gasKey} vdW Z–P T=${T}K`,
+        mode: 'ZP',
+        x: P,
+        y: Z_vdw,
+        color
+      });
+
+      if (showIdeal){
+        window._datasets.push({
+          id: idBase + '-T' + T + '-ideal',
+          name: `${gasKey} Ideal Z=1 T=${T}K`,
+          mode: 'ZP',
+          x: [Pmin, Pmax],
+          y: [1,1],
+          color: '#999999'
+        });
+      }
+    });
+  }
+
+  updateDatasetListUI();
+  replotFromDatasets();
+}
+
+function replotFromDatasets(){
+  const logX = document.getElementById('logX').value === 'yes';
+  const logY = document.getElementById('logY').value === 'yes';
+
+  if (!window._datasets.length){
+    Plotly.purge('plot');
+    return;
+  }
+
+  const firstMode = window._datasets[0].mode;
+  let xLabel = 'X', yLabel = 'Y';
+  if (firstMode === 'PV'){ xLabel = 'Volume V (L)'; yLabel = 'Pressure P (atm)'; }
+  if (firstMode === 'VP'){ xLabel = 'Pressure P (atm)'; yLabel = 'Volume V (L)'; }
+  if (firstMode === 'ZP'){ xLabel = 'Pressure P (atm)'; yLabel = 'Compressibility Z (unitless)'; }
+
+  const traces = window._datasets.map(ds => {
+    const x = [], y = [];
+    for (let i=0;i<ds.x.length;i++){
+      const xv = ds.x[i], yv = ds.y[i];
+      if (xv == null || yv == null) continue;
+      if (!isFinite(xv) || !isFinite(yv)) continue;
+      if (logX && xv <= 0) continue;
+      if (logY && yv <= 0) continue;
+      x.push(xv); y.push(yv);
+    }
+    return {
+      x, y,
+      mode:'lines',
+      name: ds.name,
+      line:{color:ds.color, width:3, shape:'spline', smoothing:0.3}
+    };
+  });
+
+  const layout = {
+    margin:{t:40,l:80,b:70,r:30},
+    paper_bgcolor:'rgba(0,0,0,0)',
+    plot_bgcolor:'#f8fafc',
+    font:{family:'"Segoe UI",sans-serif',color:'#0f172a'},
+    xaxis:{
+      title:{text:xLabel, font:{size:14}},
+      type:logX?'log':'linear',
+      autorange:true,
+      ticks:'outside',
+      tickcolor:'#cbd5f5',
+      ticklen:6,
+      tickwidth:1,
+      gridcolor:'#e2e8f0',
+      linecolor:'#94a3b8',
+      mirror:true,
+      zeroline:false
+    },
+    yaxis:{
+      title:{text:yLabel, font:{size:14}},
+      type:logY?'log':'linear',
+      autorange:true,
+      ticks:'outside',
+      tickcolor:'#cbd5f5',
+      ticklen:6,
+      tickwidth:1,
+      gridcolor:'#e2e8f0',
+      linecolor:'#94a3b8',
+      mirror:true,
+      zeroline:false
+    },
+    legend:{orientation:'h', y:1.08, x:0, bgcolor:'rgba(255,255,255,0.9)', bordercolor:'#e2e8f0', borderwidth:1},
+    hovermode:'closest'
+  };
+
+  Plotly.react('plot', traces, layout, {displayModeBar:true, responsive:true});
+}
+
+/* ---------- CSV & PNG ---------- */
+
+function downloadCSVAll(){
+  if (!window._datasets.length){
+    alert('No datasets to export.');
+    return;
+  }
+  let csv = '';
+  window._datasets.forEach(ds => {
+    csv += `# ${ds.name}\n`;
+    if (ds.mode === 'PV'){
+      csv += 'V,P\n';
+    } else if (ds.mode === 'VP'){
+      csv += 'P,V\n';
+    } else if (ds.mode === 'ZP'){
+      csv += 'P,Z\n';
+    } else {
+      csv += 'x,y\n';
+    }
+    for (let i=0;i<ds.x.length;i++){
+      const xv = ds.x[i], yv = ds.y[i];
+      if (xv == null || yv == null || !isFinite(xv) || !isFinite(yv)) continue;
+      csv += `${xv},${yv}\n`;
+    }
+    csv += '\n';
+  });
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'vdw_datasets.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPNG(){
+  Plotly.toImage('plot', {format:'png', width:1400, height:900})
+    .then(url => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vdw_plot.png';
+      a.click();
+    })
+    .catch(err => alert('PNG export failed: ' + err));
+}
+
+/* ---------- Wire Events ---------- */
+
+document.getElementById('btnPlot').addEventListener('click', plotAction);
+document.getElementById('btnClear').addEventListener('click', () => { clearDatasets(); });
+document.getElementById('btnCSV').addEventListener('click', downloadCSVAll);
+document.getElementById('btnPNG').addEventListener('click', downloadPNG);
+document.getElementById('logX').addEventListener('change', replotFromDatasets);
+document.getElementById('logY').addEventListener('change', replotFromDatasets);
+
+  /* Initial default: CO2, 200/300/1000 K, 1–500 atm, Z–P, ideal OFF, sticky OFF */
+window.addEventListener('load', () => {
+  document.getElementById('mode').value = 'ZP';
+  document.getElementById('gas').value = 'CO2';
+  document.getElementById('tempList').value = '200,300,1000';
+  document.getElementById('Pmin').value = '1';
+  document.getElementById('Pmax').value = '500';
+  document.getElementById('sticky').value = 'no';
+  document.getElementById('showIdeal').value = 'no';
+  plotAction();
+  updateDatasetListUI();
+});
+</script>
+</body>
+</html>
