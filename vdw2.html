@@ -311,7 +311,7 @@
         <div>
           <span class="chip">Tips</span>
           <div class="muted" style="margin-top:6px;">
-            Default: CO₂, 273 K, Z vs P, 1–500 atm, ideal ON, sticky ON.
+            Default: CO₂, 273 K, Z vs P, 1–500 atm, ideal OFF, sticky OFF.
             Add more gases or temperatures to compare; toggle log axes to explore behavior.
           </div>
         </div>
@@ -322,7 +322,7 @@
 
       <div class="footer">
         <div class="muted">vdW: (P + a/V²)(V − b) = RT. Units: P (atm), V (L), T (K), n (mol).</div>
-        <div class="muted">Axes: P, V, Z (short labels); ideal overlays when enabled.</div>
+        <div class="muted">Axes: P, V, Z (short labels) where Z ≡ PV/RT; ideal overlays when enabled.</div>
       </div>
     </div>
   </div>
@@ -691,15 +691,15 @@ document.getElementById('btnPNG').addEventListener('click', downloadPNG);
 document.getElementById('logX').addEventListener('change', replotFromDatasets);
 document.getElementById('logY').addEventListener('change', replotFromDatasets);
 
-  /* Initial default: CO2, 200/300/1000 K, 1–500 atm, Z–P */
+  /* Initial default: CO2, 200/300/1000 K, 1–500 atm, Z–P, ideal OFF, sticky OFF */
 window.addEventListener('load', () => {
   document.getElementById('mode').value = 'ZP';
   document.getElementById('gas').value = 'CO2';
   document.getElementById('tempList').value = '200,300,1000';
   document.getElementById('Pmin').value = '1';
   document.getElementById('Pmax').value = '500';
-  document.getElementById('sticky').value = 'yes';
-  document.getElementById('showIdeal').value = 'yes';
+  document.getElementById('sticky').value = 'no';
+  document.getElementById('showIdeal').value = 'no';
   plotAction();
   updateDatasetListUI();
 });
