@@ -604,7 +604,7 @@ function replotFromDatasets(){
   let xLabel = 'X', yLabel = 'Y';
   if (firstMode === 'PV'){ xLabel = 'Volume V (L)'; yLabel = 'Pressure P (atm)'; }
   if (firstMode === 'VP'){ xLabel = 'Pressure P (atm)'; yLabel = 'Volume V (L)'; }
-  if (firstMode === 'ZP'){ xLabel = 'Pressure P (atm)'; yLabel = 'Compressibility Z (unitless)'; }
+  if (firstMode === 'ZP'){ xLabel = 'Pressure P (atm)'; yLabel = 'Compressibility Z (PV/RT)'; }
 
   const traces = window._datasets.map(ds => {
     const x = [], y = [];
