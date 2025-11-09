@@ -1,8 +1,9 @@
 # treavorkendall.github.io
-van der Waals Equation and Grapher
+Science.
 
-## Interactive tools
+## Interactive Tools
 
-- `vdw.html` – Van der Waals equation visualizer.
-- `projectile.html` – Projectile motion calculator with trajectory plot and key metrics.
-science.
+- [Van der Waals Equation Visualizer](https://treavorkendall.github.io/vdw2.html)
+- [Projectile Motion Calculator](https://treavorkendall.github.io/projectile.html)
+
+Science.
