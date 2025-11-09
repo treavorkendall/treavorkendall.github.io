@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Projectile Motion Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.12);
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    header {
+      padding: 36px 16px 16px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2.4vw + 1rem, 2.4rem);
+      font-weight: 700;
+    }
+
+    header p {
+      margin: 10px auto 0;
+      max-width: 600px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .layout {
+      max-width: 1200px;
+      margin: 0 auto 60px;
+      padding: 0 16px 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 18px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    form {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    input[type="number"] {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 1rem;
+      background: #f1f5f9;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      color: inherit;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      outline: none;
+      background: #fff;
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      justify-self: start;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.28);
+    }
+
+    .outputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      background: linear-gradient(145deg, rgba(37, 99, 235, 0.08), rgba(255, 255, 255, 0.9));
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid rgba(37, 99, 235, 0.15);
+    }
+
+    .stat h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .stat p {
+      margin: 6px 0 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    #chartWrapper {
+      position: relative;
+      height: 360px;
+    }
+
+    .table-wrapper {
+      max-height: 320px;
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: #eff6ff;
+      color: var(--muted);
+      text-align: right;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 720px) {
+      header {
+        padding-top: 28px;
+      }
+      .outputs {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Projectile Motion Calculator</h1>
+    <p>
+      Explore the trajectory of a projectile launched with an initial speed and angle.
+      Enter your scenario below to instantly visualize the flight path and key metrics.
+    </p>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <h2>Launch Conditions</h2>
+      <form id="projectileForm">
+        <label>
+          Initial speed (m/s)
+          <input id="speed" name="speed" type="number" min="0" step="0.1" value="25" required>
+        </label>
+        <label>
+          Launch angle (°)
+          <input id="angle" name="angle" type="number" min="0" max="90" step="0.1" value="40" required>
+        </label>
+        <label>
+          Initial height (m)
+          <input id="height" name="height" type="number" min="0" step="0.1" value="0">
+        </label>
+        <label>
+          Gravity (m/s²)
+          <input id="gravity" name="gravity" type="number" min="0" step="0.01" value="9.81" required>
+        </label>
+        <button type="submit">Compute trajectory</button>
+        <p class="hint">Results assume ideal projectile motion with no air resistance.</p>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Trajectory Overview</h2>
+      <div id="results" class="hidden">
+        <div class="outputs" aria-live="polite">
+          <div class="stat">
+            <h3>Time of flight</h3>
+            <p id="timeOfFlight">–</p>
+          </div>
+          <div class="stat">
+            <h3>Horizontal range</h3>
+            <p id="range">–</p>
+          </div>
+          <div class="stat">
+            <h3>Maximum height</h3>
+            <p id="maxHeight">–</p>
+          </div>
+          <div class="stat">
+            <h3>Time to apex</h3>
+            <p id="timeToApex">–</p>
+          </div>
+          <div class="stat">
+            <h3>Impact speed</h3>
+            <p id="impactSpeed">–</p>
+          </div>
+        </div>
+        <div id="chartWrapper">
+          <canvas id="trajectoryChart" role="img" aria-label="Projectile trajectory chart"></canvas>
+        </div>
+      </div>
+      <p id="emptyState">Enter values and click <strong>Compute trajectory</strong> to see the results.</p>
+    </section>
+
+    <section class="card">
+      <h2>Sample trajectory points</h2>
+      <div id="tableContainer" class="table-wrapper hidden" aria-live="polite">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Time (s)</th>
+              <th scope="col">Horizontal (m)</th>
+              <th scope="col">Vertical (m)</th>
+            </tr>
+          </thead>
+          <tbody id="samples"></tbody>
+        </table>
+      </div>
+      <p class="hint">Coordinates are rounded to two decimal places and clipped at ground level.</p>
+    </section>
+  </main>
+
+  <script>
+    const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    let trajectoryChart = null;
+
+    document.getElementById('projectileForm').addEventListener('submit', event => {
+      event.preventDefault();
+
+      const speed = Number(document.getElementById('speed').value);
+      const angleDeg = Number(document.getElementById('angle').value);
+      const height = Number(document.getElementById('height').value);
+      const gravity = Number(document.getElementById('gravity').value);
+
+      if (!isFinite(speed) || speed < 0) {
+        alert('Please enter a valid non-negative speed.');
+        return;
+      }
+
+      if (!isFinite(angleDeg) || angleDeg < 0 || angleDeg > 90) {
+        alert('The launch angle must be between 0° and 90°.');
+        return;
+      }
+
+      if (!isFinite(height) || height < 0) {
+        alert('Please enter a valid initial height (zero or greater).');
+        return;
+      }
+
+      if (!isFinite(gravity) || gravity <= 0) {
+        alert('Gravity must be greater than zero.');
+        return;
+      }
+
+      const result = calculateProjectile(speed, angleDeg, height, gravity);
+      if (!result) {
+        alert('Unable to compute the trajectory with the provided values.');
+        return;
+      }
+
+      renderResults(result);
+    });
+
+    function calculateProjectile(speed, angleDeg, height, gravity) {
+      const angleRad = angleDeg * Math.PI / 180;
+      const vx = speed * Math.cos(angleRad);
+      const vy = speed * Math.sin(angleRad);
+      const discriminant = vy * vy + 2 * gravity * height;
+
+      if (discriminant < 0) {
+        return null;
+      }
+
+      const timeOfFlight = (vy + Math.sqrt(discriminant)) / gravity;
+      const timeToApex = vy > 0 ? vy / gravity : 0;
+      const maxHeight = vy > 0 ? height + (vy * vy) / (2 * gravity) : height;
+      const range = vx * timeOfFlight;
+      const impactVy = vy - gravity * timeOfFlight;
+      const impactSpeed = Math.sqrt(vx * vx + impactVy * impactVy);
+
+      const samplesCount = Math.max(40, Math.min(240, Math.ceil(timeOfFlight / 0.04)));
+      const points = [];
+      for (let i = 0; i <= samplesCount; i++) {
+        const t = timeOfFlight * i / samplesCount;
+        const x = vx * t;
+        const y = height + vy * t - 0.5 * gravity * t * t;
+        points.push({ t, x, y: Math.max(0, y) });
+      }
+
+      return {
+        speed,
+        angleDeg,
+        height,
+        gravity,
+        timeOfFlight,
+        timeToApex,
+        maxHeight,
+        range,
+        impactSpeed,
+        points
+      };
+    }
+
+    function renderResults(data) {
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('results').classList.remove('hidden');
+      document.getElementById('tableContainer').classList.remove('hidden');
+
+      document.getElementById('timeOfFlight').textContent = `${formatter.format(data.timeOfFlight)} s`;
+      document.getElementById('range').textContent = `${formatter.format(data.range)} m`;
+      document.getElementById('maxHeight').textContent = `${formatter.format(data.maxHeight)} m`;
+      document.getElementById('timeToApex').textContent = `${formatter.format(data.timeToApex)} s`;
+      document.getElementById('impactSpeed').textContent = `${formatter.format(data.impactSpeed)} m/s`;
+
+      const labels = data.points.map(point => point.t);
+      const dataset = data.points.map(point => ({ x: point.x, y: point.y }));
+
+      if (!trajectoryChart) {
+        const ctx = document.getElementById('trajectoryChart');
+        trajectoryChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Trajectory',
+              data: dataset,
+              parsing: false,
+              borderColor: 'rgba(37, 99, 235, 1)',
+              backgroundColor: 'rgba(37, 99, 235, 0.15)',
+              pointRadius: 0,
+              borderWidth: 2,
+              fill: true,
+              tension: 0.15
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                type: 'linear',
+                title: {
+                  display: true,
+                  text: 'Horizontal distance (m)'
+                }
+              },
+              y: {
+                type: 'linear',
+                title: {
+                  display: true,
+                  text: 'Height (m)'
+                },
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: context => {
+                    const point = data.points[context.dataIndex];
+                    return `t=${formatter.format(point.t)} s, x=${formatter.format(point.x)} m, y=${formatter.format(point.y)} m`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        trajectoryChart.data.labels = labels;
+        trajectoryChart.data.datasets[0].data = dataset;
+        trajectoryChart.update();
+      }
+
+      const tbody = document.getElementById('samples');
+      tbody.innerHTML = '';
+      const step = Math.max(1, Math.floor((data.points.length - 1) / 11));
+      for (let i = 0; i < data.points.length - 1; i += step) {
+        const point = data.points[i];
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${formatter.format(point.t)}</td>
+          <td>${formatter.format(point.x)}</td>
+          <td>${formatter.format(point.y)}</td>
+        `;
+        tbody.appendChild(row);
+      }
+
+      const finalPoint = data.points[data.points.length - 1];
+      const lastRow = document.createElement('tr');
+      lastRow.innerHTML = `
+        <td>${formatter.format(finalPoint.t)}</td>
+        <td>${formatter.format(finalPoint.x)}</td>
+        <td>${formatter.format(finalPoint.y)}</td>
+      `;
+      tbody.appendChild(lastRow);
+    }
+  </script>
+</body>
+</html>
