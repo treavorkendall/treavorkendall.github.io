@@ -1,14 +1,13 @@
 # treavorkendall.github.io
-Science.
-
-## Interactive Tools
+## Science.
 
 - [Van der Waals Equation Visualizer](https://treavorkendall.github.io/vdw2.html)
 - [Projectile Motion Calculator](https://treavorkendall.github.io/projectile.html)
 
-Science.
+## Science.
 
-Art.
+## Art.
+
 - [Proportion Overlay Tool](https://treavorkendall.github.io/proportions6b.html)
 
-Art.
+## Art.
