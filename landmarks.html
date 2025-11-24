@@ -189,6 +189,10 @@
 
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
 
+    .line { display: inline-flex; align-items: center; gap: 6px; }
+
+    .line i { width: 22px; height: 0; border-top: 3px solid #38bdf8; display: inline-block; }
+
     .dot {
       width: 14px;
       height: 14px;
@@ -233,6 +237,7 @@
           <h3>3) Visibility</h3>
           <div class="toggles">
             <label class="toggle-row"><input type="checkbox" id="toggleLandmarks" checked />Show landmarks</label>
+            <label class="toggle-row"><input type="checkbox" id="toggleConnectors" checked />Show connector lines</label>
             <label class="toggle-row"><input type="checkbox" id="toggleLabels" checked />Show labels</label>
             <label class="toggle-row"><input type="checkbox" id="toggleCalibration" />Calibration handles</label>
           </div>
@@ -259,6 +264,7 @@
         </div>
         <div class="legend">
           <span><span class="dot" style="background:#22d3ee;"></span>Detected landmarks</span>
+          <span class="line"><i></i>Connector lines</span>
           <span><span class="dot" style="background:#f43f5e;"></span>Calibration handles</span>
           <span><span class="dot" style="background:#a855f7;"></span>Low confidence</span>
         </div>
@@ -277,6 +283,7 @@
     const detectBtn = document.getElementById('runDetection');
     const resetBtn = document.getElementById('reset');
     const toggleLandmarks = document.getElementById('toggleLandmarks');
+    const toggleConnectors = document.getElementById('toggleConnectors');
     const toggleLabels = document.getElementById('toggleLabels');
     const toggleCalibration = document.getElementById('toggleCalibration');
     const applyCalibrationBtn = document.getElementById('applyCalibration');
@@ -513,6 +520,7 @@
       if (imageBitmap) ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
 
       if (toggleLandmarks.checked) {
+        if (toggleConnectors.checked) drawConnectors();
         drawConnectors();
         renderedLandmarks.forEach(l => drawLandmark(l));
       }
@@ -654,6 +662,7 @@
     }
 
     toggleLandmarks.addEventListener('change', draw);
+    toggleConnectors.addEventListener('change', draw);
     toggleLabels.addEventListener('change', draw);
     toggleCalibration.addEventListener('change', () => { draw(); });
     loadModelBtn.addEventListener('click', loadModel);
