@@ -305,12 +305,19 @@
       { id: 'sternalNotch', label: 'Sternal Notch', derived: true },
       { id: 'ribBase', label: 'Rib Cage Base', derived: true },
       { id: 'pelvicCenter', label: 'Pelvic Center', derived: true },
-      { id: 'leftAsis', label: 'Left ASIS / Iliac Crest', source: 'left_hip' },
-      { id: 'rightAsis', label: 'Right ASIS / Iliac Crest', source: 'right_hip' },
+      { id: 'navel', label: 'Navel (Belly Button)', derived: true },
+      { id: 'leftAsis', label: 'Left ASIS (Iliac Crest)', source: 'left_hip' },
+      { id: 'rightAsis', label: 'Right ASIS (Iliac Crest)', source: 'right_hip' },
       { id: 'leftGreaterTrochanter', label: 'Left Greater Trochanter', source: 'left_hip' },
       { id: 'rightGreaterTrochanter', label: 'Right Greater Trochanter', source: 'right_hip' },
       { id: 'leftDistalFemur', label: 'Left Distal Femur (Knee)', source: 'left_knee' },
       { id: 'rightDistalFemur', label: 'Right Distal Femur (Knee)', source: 'right_knee' }
+    ];
+
+    const connectors = [
+      { id: 'clavicleLeft', from: 'sternalNotch', to: 'leftShoulder', style: 'solid' },
+      { id: 'clavicleRight', from: 'sternalNotch', to: 'rightShoulder', style: 'solid' },
+      { id: 'tenthRib', from: 'ribBase', to: 'sternalNotch', style: 'dashed' }
     ];
 
     function setStatus(el, text, variant) {
@@ -401,7 +408,7 @@
 
       const midShoulder = midpoint(leftShoulder, rightShoulder);
       const midHip = midpoint(leftHip, rightHip);
-      const shoulderToHip = vector(midShoulder, midHip);
+      const shoulderHipDistance = distance(midShoulder, midHip || midShoulder);
 
       const ribBase = midHip ? {
         x: midHip.x,
@@ -411,11 +418,17 @@
 
       const sternalNotch = midShoulder ? {
         x: midShoulder.x,
-        y: midShoulder.y - (distance(midShoulder, midHip || midShoulder) * 0.08),
+        y: midShoulder.y - (shoulderHipDistance * 0.08),
         score: averageScore(leftShoulder, rightShoulder)
       } : null;
 
       const pelvicCenter = midHip ? { x: midHip.x, y: midHip.y, score: averageScore(leftHip, rightHip) } : null;
+
+      const navel = midHip ? {
+        x: midHip.x,
+        y: midHip.y - (shoulderHipDistance * 0.12),
+        score: averageScore(leftHip, rightHip)
+      } : null;
 
       const items = landmarkList.map(def => {
         let point = null;
@@ -424,6 +437,7 @@
           if (def.id === 'sternalNotch') point = sternalNotch;
           if (def.id === 'ribBase') point = ribBase;
           if (def.id === 'pelvicCenter') point = pelvicCenter;
+          if (def.id === 'navel') point = navel;
           score = point?.score ?? 0;
         } else if (def.source && kp[def.source]) {
           point = { x: kp[def.source].x, y: kp[def.source].y };
@@ -499,6 +513,7 @@
       if (imageBitmap) ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
 
       if (toggleLandmarks.checked) {
+        drawConnectors();
         renderedLandmarks.forEach(l => drawLandmark(l));
       }
 
@@ -514,6 +529,30 @@
         ctx.stroke();
         ctx.setLineDash([]);
       }
+    }
+
+    function getRenderedPoint(id) {
+      return renderedLandmarks.find(l => l.id === id)?.point ?? null;
+    }
+
+    function drawConnectors() {
+      connectors.forEach(conn => {
+        const start = getRenderedPoint(conn.from);
+        const end = getRenderedPoint(conn.to);
+        if (!start || !end) return;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        if (conn.style === 'dashed') {
+          ctx.setLineDash([6, 6]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
     }
 
     function drawLandmark(l) {
