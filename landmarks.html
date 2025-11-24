@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Figure Landmark Mapper</title>
+  <style>
+    :root {
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .shell {
+      width: 1100px;
+      max-width: 100%;
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+      padding: 20px 22px 26px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin: 4px 0 0;
+      color: #475569;
+      font-size: 0.95rem;
+      max-width: 740px;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #f8fafc;
+      padding: 14px 14px 12px;
+    }
+
+    .panel h3 {
+      margin: 0 0 6px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+    }
+
+    .section {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 8px 0 10px;
+    }
+
+    .section:last-of-type { border-bottom: none; }
+
+    label { display: block; font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; }
+
+    input[type="file"] { width: 100%; }
+
+    .hint {
+      font-size: 0.83rem;
+      color: #6b7280;
+      margin-top: 4px;
+      line-height: 1.45;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+
+    button.primary {
+      background: #2563eb;
+      color: #f8fafc;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+    }
+
+    button.primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+    button.primary:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3); }
+
+    button.secondary {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    button.secondary:hover { background: #cbd5e1; }
+
+    .toggles { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+
+    .toggle-row { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; }
+    .toggle-row input { width: 18px; height: 18px; }
+
+    .status {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid #e2e8f0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill.ready { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
+    .pill.warn { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .pill.info { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      background: #0f172a;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #0f172a;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    #viewer {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #0f172a;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: #475569;
+    }
+
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+    .line { display: inline-flex; align-items: center; gap: 6px; }
+
+    .line i { width: 22px; height: 0; border-top: 3px solid #38bdf8; display: inline-block; }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .callout {
+      border: 1px solid #cbd5e1;
+      background: #e0f2fe;
+      color: #0f172a;
+      border-radius: 12px;
+      padding: 12px 14px 14px;
+      margin-bottom: 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+
+    .callout strong { display: block; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>Figure Landmark Mapper</h1>
+        <p class="subtitle">Upload a photo or scan, detect key skeletal landmarks (shoulder, rib cage, hips, femur) with MoveNet, and fine-tune them with calibration handles or manual edits.</p>
+      </div>
+    </header>
+
+    <div class="callout">
+      <strong>Landmarks that fully constrain torso and leg pose (twist, tilt, foreshortening):</strong>
+      <ul>
+        <li>Both acromions (left/right shoulders) to lock scale, yaw, and roll for the upper body.</li>
+        <li>Sternal notch plus tenth-rib junction to anchor the rib cage axis and capture forward/backward pitch.</li>
+        <li>Left/right ASIS to fix pelvic yaw/tilt and separate pelvic rotation from the rib cage.</li>
+        <li>Greater trochanters to set the hip line and handle femur foreshortening relative to the pelvis.</li>
+        <li>Distal femur/knee centers to preserve leg twist and lower-limb foreshortening down the chain.</li>
+        <li>Pelvic center and navel to keep midline alignment and detect shear between rib cage and pelvis.</li>
+      </ul>
+    </div>
+
+    <div class="layout">
+      <div class="panel">
+        <div class="section">
+          <h3>1) Image</h3>
+          <label for="uploader">Upload reference</label>
+          <input id="uploader" type="file" accept="image/*" />
+          <p class="hint">Large images are auto-scaled to fit the viewer while keeping coordinates accurate for landmark editing.</p>
+        </div>
+
+        <div class="section">
+          <h3>2) Detection</h3>
+          <div class="controls-row">
+            <button id="loadModel" class="primary">Load pose model</button>
+            <button id="runDetection" class="secondary">Detect landmarks</button>
+            <button id="reset" class="secondary">Reset edits</button>
+          </div>
+          <p class="hint">Uses TensorFlow MoveNet (single-pose) to find shoulders, hips, and knees. Confidence under 0.3 will be flagged as low.</p>
+          <div class="status">
+            <div class="pill info" id="modelStatus">Model: not loaded</div>
+            <div class="pill warn" id="detectStatus">Waiting for image</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>3) Visibility</h3>
+          <div class="toggles">
+            <label class="toggle-row"><input type="checkbox" id="toggleLandmarks" checked />Show landmarks</label>
+            <label class="toggle-row"><input type="checkbox" id="toggleConnectors" checked />Show connector lines</label>
+            <label class="toggle-row"><input type="checkbox" id="toggleLabels" checked />Show labels</label>
+            <label class="toggle-row"><input type="checkbox" id="toggleCalibration" />Calibration handles</label>
+          </div>
+          <p class="hint">Landmarks and labels can be toggled independently. Drag points to manually adjust placement.</p>
+        </div>
+
+        <div class="section">
+          <h3>4) Calibration (optional)</h3>
+          <p class="hint">Drag the two shoulder handles to align the detector to your subject. All landmarks will follow the shoulder-to-shoulder scale, rotation, and offset. Toggle calibration handles to start.</p>
+          <div class="controls-row">
+            <button id="applyCalibration" class="secondary">Re-apply calibration</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Editing tips</h3>
+          <p class="hint">Click and drag any visible landmark to override its position. Use Reset to return to the latest detection. Run detection again after changing the image.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="canvas-wrap">
+          <canvas id="viewer"></canvas>
+        </div>
+        <div class="legend">
+          <span><span class="dot" style="background:#22d3ee;"></span>Detected landmarks</span>
+          <span class="line"><i></i>Connector lines</span>
+          <span><span class="dot" style="background:#f43f5e;"></span>Calibration handles</span>
+          <span><span class="dot" style="background:#a855f7;"></span>Low confidence</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.17.0/dist/tf-backend-webgl.min.js"></script>
+  <script>
+    const canvas = document.getElementById('viewer');
+    const ctx = canvas.getContext('2d');
+    const uploader = document.getElementById('uploader');
+    const loadModelBtn = document.getElementById('loadModel');
+    const detectBtn = document.getElementById('runDetection');
+    const resetBtn = document.getElementById('reset');
+    const toggleLandmarks = document.getElementById('toggleLandmarks');
+    const toggleConnectors = document.getElementById('toggleConnectors');
+    const toggleLabels = document.getElementById('toggleLabels');
+    const toggleCalibration = document.getElementById('toggleCalibration');
+    const applyCalibrationBtn = document.getElementById('applyCalibration');
+    const modelStatus = document.getElementById('modelStatus');
+    const detectStatus = document.getElementById('detectStatus');
+
+    let detector = null;
+    let imageBitmap = null;
+    let baseLandmarks = [];
+    let customLandmarks = new Map();
+    let renderedLandmarks = [];
+    let calibrationHandles = { left: null, right: null };
+    let isDragging = false;
+    let dragTarget = null;
+    let imageScale = 1;
+
+    const landmarkPalette = {
+      primary: '#22d3ee',
+      low: '#a855f7',
+      calibration: '#f43f5e'
+    };
+
+    const landmarkList = [
+      { id: 'leftShoulder', label: 'Left Acromion (Shoulder)', source: 'left_shoulder' },
+      { id: 'rightShoulder', label: 'Right Acromion (Shoulder)', source: 'right_shoulder' },
+      { id: 'sternalNotch', label: 'Sternal Notch', derived: true },
+      { id: 'ribBase', label: 'Rib Cage Base', derived: true },
+      { id: 'pelvicCenter', label: 'Pelvic Center', derived: true },
+      { id: 'navel', label: 'Navel (Belly Button)', derived: true },
+      { id: 'leftAsis', label: 'Left ASIS (Iliac Crest)', source: 'left_hip' },
+      { id: 'rightAsis', label: 'Right ASIS (Iliac Crest)', source: 'right_hip' },
+      { id: 'leftGreaterTrochanter', label: 'Left Greater Trochanter', source: 'left_hip' },
+      { id: 'rightGreaterTrochanter', label: 'Right Greater Trochanter', source: 'right_hip' },
+      { id: 'leftDistalFemur', label: 'Left Distal Femur (Knee)', source: 'left_knee' },
+      { id: 'rightDistalFemur', label: 'Right Distal Femur (Knee)', source: 'right_knee' }
+    ];
+
+    const connectors = [
+      { id: 'clavicleLeft', from: 'sternalNotch', to: 'leftShoulder', style: 'solid' },
+      { id: 'clavicleRight', from: 'sternalNotch', to: 'rightShoulder', style: 'solid' },
+      { id: 'tenthRib', from: 'ribBase', to: 'sternalNotch', style: 'dashed' }
+    ];
+
+    function setStatus(el, text, variant) {
+      el.textContent = text;
+      el.className = 'pill ' + variant;
+    }
+
+    async function loadModel() {
+      if (detector) return;
+      setStatus(modelStatus, 'Model: loading…', 'info');
+      detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+      });
+      setStatus(modelStatus, 'Model: ready (MoveNet)', 'ready');
+    }
+
+    function resizeCanvasToImage(img) {
+      const maxWidth = 760;
+      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+      imageScale = scale;
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.style.width = `${img.width * scale}px`;
+      canvas.style.height = `${img.height * scale}px`;
+    }
+
+    async function handleUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = async () => {
+        imageBitmap = img;
+        resizeCanvasToImage(img);
+        clearLandmarks();
+        draw();
+        setStatus(detectStatus, 'Image ready — run detection', 'info');
+      };
+      img.src = url;
+    }
+
+    function clearLandmarks() {
+      baseLandmarks = [];
+      renderedLandmarks = [];
+      customLandmarks = new Map();
+      calibrationHandles = { left: null, right: null };
+    }
+
+    async function runDetection() {
+      if (!imageBitmap) {
+        setStatus(detectStatus, 'Upload an image first', 'warn');
+        return;
+      }
+      if (!detector) await loadModel();
+
+      setStatus(detectStatus, 'Detecting landmarks…', 'info');
+      const poses = await detector.estimatePoses(imageBitmap, { flipHorizontal: false });
+      if (!poses.length) {
+        setStatus(detectStatus, 'No person detected — try a clearer photo', 'warn');
+        return;
+      }
+
+      const keypoints = poses[0].keypoints.reduce((acc, kp) => {
+        acc[kp.name] = kp;
+        return acc;
+      }, {});
+
+      baseLandmarks = buildLandmarks(keypoints);
+      customLandmarks = new Map();
+      calibrationHandles.left = getPoint(baseLandmarks, 'leftShoulder');
+      calibrationHandles.right = getPoint(baseLandmarks, 'rightShoulder');
+      applyCalibration();
+      draw();
+      setStatus(detectStatus, 'Detection finished', 'ready');
+    }
+
+    function getPoint(list, id) {
+      return list.find(l => l.id === id)?.point ?? null;
+    }
+
+    function buildLandmarks(kp) {
+      const leftShoulder = kp['left_shoulder'];
+      const rightShoulder = kp['right_shoulder'];
+      const leftHip = kp['left_hip'];
+      const rightHip = kp['right_hip'];
+      const leftKnee = kp['left_knee'];
+      const rightKnee = kp['right_knee'];
+
+      const midShoulder = midpoint(leftShoulder, rightShoulder);
+      const midHip = midpoint(leftHip, rightHip);
+      const shoulderHipDistance = distance(midShoulder, midHip || midShoulder);
+
+      const ribBase = midHip ? {
+        x: midHip.x,
+        y: midHip.y - (distance(midShoulder, midHip) * 0.25),
+        score: averageScore(leftHip, rightHip)
+      } : null;
+
+      const sternalNotch = midShoulder ? {
+        x: midShoulder.x,
+        y: midShoulder.y - (shoulderHipDistance * 0.08),
+        score: averageScore(leftShoulder, rightShoulder)
+      } : null;
+
+      const pelvicCenter = midHip ? { x: midHip.x, y: midHip.y, score: averageScore(leftHip, rightHip) } : null;
+
+      const navel = midHip ? {
+        x: midHip.x,
+        y: midHip.y - (shoulderHipDistance * 0.12),
+        score: averageScore(leftHip, rightHip)
+      } : null;
+
+      const items = landmarkList.map(def => {
+        let point = null;
+        let score = 1;
+        if (def.derived) {
+          if (def.id === 'sternalNotch') point = sternalNotch;
+          if (def.id === 'ribBase') point = ribBase;
+          if (def.id === 'pelvicCenter') point = pelvicCenter;
+          if (def.id === 'navel') point = navel;
+          score = point?.score ?? 0;
+        } else if (def.source && kp[def.source]) {
+          point = { x: kp[def.source].x, y: kp[def.source].y };
+          score = kp[def.source].score ?? 0;
+        }
+        return { id: def.id, label: def.label, point, score };
+      });
+
+      const extras = [];
+      if (leftShoulder && rightShoulder) {
+        extras.push({ id: 'shoulderLine', label: 'Shoulder Span', point: midShoulder, score: averageScore(leftShoulder, rightShoulder) });
+      }
+
+      return [...items, ...extras].filter(l => l.point);
+    }
+
+    function averageScore(a, b) {
+      const s1 = a?.score ?? 0;
+      const s2 = b?.score ?? 0;
+      if (s1 === 0 && s2 === 0) return 0;
+      if (s1 === 0) return s2;
+      if (s2 === 0) return s1;
+      return (s1 + s2) / 2;
+    }
+
+    function distance(a, b) {
+      if (!a || !b) return 0;
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function midpoint(a, b) {
+      if (!a || !b) return null;
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, score: averageScore(a, b) };
+    }
+
+    function vector(a, b) {
+      if (!a || !b) return { x: 0, y: 0 };
+      return { x: b.x - a.x, y: b.y - a.y };
+    }
+
+    function applyCalibration() {
+      if (!baseLandmarks.length) return;
+      const leftBase = getPoint(baseLandmarks, 'leftShoulder');
+      const rightBase = getPoint(baseLandmarks, 'rightShoulder');
+      const leftTarget = calibrationHandles.left || leftBase;
+      const rightTarget = calibrationHandles.right || rightBase;
+
+      const baseVec = vector(leftBase, rightBase);
+      const targetVec = vector(leftTarget, rightTarget);
+      const baseLen = distance(leftBase, rightBase) || 1;
+      const targetLen = distance(leftTarget, rightTarget) || baseLen;
+      const scale = targetLen / baseLen;
+      const baseAngle = Math.atan2(baseVec.y, baseVec.x);
+      const targetAngle = Math.atan2(targetVec.y, targetVec.x);
+      const rotation = targetAngle - baseAngle;
+
+      const sinR = Math.sin(rotation);
+      const cosR = Math.cos(rotation);
+
+      renderedLandmarks = baseLandmarks.map(l => {
+        const rel = { x: l.point.x - leftBase.x, y: l.point.y - leftBase.y };
+        const rotated = { x: rel.x * cosR - rel.y * sinR, y: rel.x * sinR + rel.y * cosR };
+        const scaled = { x: rotated.x * scale, y: rotated.y * scale };
+        const transformed = { x: scaled.x + leftTarget.x, y: scaled.y + leftTarget.y };
+        const override = customLandmarks.get(l.id);
+        return { ...l, point: override ? override : transformed };
+      });
+    }
+
+    function draw() {
+      if (!canvas.width || !canvas.height) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (imageBitmap) ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+      if (toggleLandmarks.checked) {
+        if (toggleConnectors.checked) drawConnectors();
+        renderedLandmarks.forEach(l => drawLandmark(l));
+      }
+
+      if (toggleCalibration.checked && calibrationHandles.left && calibrationHandles.right) {
+        drawCalibrationHandle(calibrationHandles.left, 'L');
+        drawCalibrationHandle(calibrationHandles.right, 'R');
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(calibrationHandles.left.x, calibrationHandles.left.y);
+        ctx.lineTo(calibrationHandles.right.x, calibrationHandles.right.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function getRenderedPoint(id) {
+      return renderedLandmarks.find(l => l.id === id)?.point ?? null;
+    }
+
+    function drawConnectors() {
+      connectors.forEach(conn => {
+        const start = getRenderedPoint(conn.from);
+        const end = getRenderedPoint(conn.to);
+        if (!start || !end) return;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        if (conn.style === 'dashed') {
+          ctx.setLineDash([6, 6]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+    }
+
+    function drawLandmark(l) {
+      if (!l.point) return;
+      const radius = 7;
+      const color = l.score < 0.3 ? landmarkPalette.low : landmarkPalette.primary;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(l.point.x, l.point.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (toggleLabels.checked) {
+        ctx.font = '14px Inter, system-ui';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 3;
+        const text = l.label;
+        const x = l.point.x + 10;
+        const y = l.point.y - 10;
+        ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y);
+      }
+    }
+
+    function drawCalibrationHandle(point, label) {
+      const radius = 9;
+      ctx.fillStyle = landmarkPalette.calibration;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = 'bold 12px Inter, system-ui';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, point.x - 4, point.y + 4);
+    }
+
+    function canvasToImageCoords(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (evt.clientX - rect.left) * scaleX,
+        y: (evt.clientY - rect.top) * scaleY,
+      };
+    }
+
+    function hitTest(point, candidates, radius = 14) {
+      return candidates.find(c => distance(point, c.point) <= radius);
+    }
+
+    canvas.addEventListener('mousedown', (evt) => {
+      if (!toggleLandmarks.checked && !toggleCalibration.checked) return;
+      const pos = canvasToImageCoords(evt);
+      if (toggleCalibration.checked) {
+        const hits = [];
+        if (calibrationHandles.left) hits.push({ type: 'calibration', id: 'left', point: calibrationHandles.left });
+        if (calibrationHandles.right) hits.push({ type: 'calibration', id: 'right', point: calibrationHandles.right });
+        const hit = hitTest(pos, hits);
+        if (hit) {
+          dragTarget = hit;
+          isDragging = true;
+          return;
+        }
+      }
+
+      if (toggleLandmarks.checked) {
+        const hit = hitTest(pos, renderedLandmarks);
+        if (hit) {
+          dragTarget = { type: 'landmark', id: hit.id };
+          isDragging = true;
+        }
+      }
+    });
+
+    canvas.addEventListener('mousemove', (evt) => {
+      if (!isDragging || !dragTarget) return;
+      const pos = canvasToImageCoords(evt);
+      if (dragTarget.type === 'calibration') {
+        calibrationHandles[dragTarget.id] = pos;
+        applyCalibration();
+      } else if (dragTarget.type === 'landmark') {
+        customLandmarks.set(dragTarget.id, pos);
+        applyCalibration();
+      }
+      draw();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      dragTarget = null;
+    });
+
+    function resetAll() {
+      if (!baseLandmarks.length) return;
+      customLandmarks = new Map();
+      calibrationHandles.left = getPoint(baseLandmarks, 'leftShoulder');
+      calibrationHandles.right = getPoint(baseLandmarks, 'rightShoulder');
+      applyCalibration();
+      draw();
+    }
+
+    toggleLandmarks.addEventListener('change', draw);
+    toggleConnectors.addEventListener('change', draw);
+    toggleLabels.addEventListener('change', draw);
+    toggleCalibration.addEventListener('change', () => { draw(); });
+    loadModelBtn.addEventListener('click', loadModel);
+    detectBtn.addEventListener('click', runDetection);
+    resetBtn.addEventListener('click', resetAll);
+    applyCalibrationBtn.addEventListener('click', () => { applyCalibration(); draw(); });
+    uploader.addEventListener('change', handleUpload);
+
+    // Initialize blank canvas size for layout stability
+    canvas.width = 900;
+    canvas.height = 600;
+    canvas.style.width = '100%';
+    canvas.style.height = 'auto';
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  </script>
+</body>
+</html>
