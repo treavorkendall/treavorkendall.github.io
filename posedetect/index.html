@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skeletal Drawing Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- MediaPipe Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <!-- TensorFlow.js and MoveNet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Skeletal Drawing Tool</h1>
+            <div class="upload-controls">
+                <input type="file" id="imageUpload" accept="image/*">
+            </div>
+        </header>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="modelSelect">Model:</label>
+                <select id="modelSelect">
+                    <option value="mediapipe">MediaPipe</option>
+                    <option value="movenet">MoveNet</option>
+                </select>
+            </div>
+            <label><input type="checkbox" id="showLandmarks" checked> Show Landmarks</label>
+            <label><input type="checkbox" id="showLabels" checked> Show Labels</label>
+            <label><input type="checkbox" id="showFullPose"> Show Full Pose</label>
+            <label><input type="checkbox" id="editMode"> Edit Mode</label>
+            <button id="resetBtn">Reset Landmarks</button>
+            <button id="resetViewBtn">Reset View</button>
+            <div class="export-controls" style="display: inline-block; margin-left: 20px;">
+                <button id="exportCombinedBtn">Export Combined</button>
+                <button id="exportSkeletonBtn">Export Skeleton</button>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="outputCanvas"></canvas>
+            <div id="loading" class="hidden">Processing...</div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
