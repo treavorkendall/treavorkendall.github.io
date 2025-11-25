@@ -337,18 +337,31 @@
       { id: 'ribBase', label: 'Rib Cage Base', derived: true },
       { id: 'pelvicCenter', label: 'Pelvic Center', derived: true },
       { id: 'navel', label: 'Navel (Belly Button)', derived: true },
-      { id: 'leftAsis', label: 'Left ASIS (Iliac Crest)', source: 'left_hip' },
-      { id: 'rightAsis', label: 'Right ASIS (Iliac Crest)', source: 'right_hip' },
-      { id: 'leftGreaterTrochanter', label: 'Left Greater Trochanter', source: 'left_hip' },
-      { id: 'rightGreaterTrochanter', label: 'Right Greater Trochanter', source: 'right_hip' },
+      { id: 'leftHip', label: 'Left Hip (Joint Center)', source: 'left_hip' },
+      { id: 'rightHip', label: 'Right Hip (Joint Center)', source: 'right_hip' },
+      { id: 'leftAsis', label: 'Left ASIS (Iliac Crest)', derived: true },
+      { id: 'rightAsis', label: 'Right ASIS (Iliac Crest)', derived: true },
+      { id: 'leftPsis', label: 'Left PSIS (Iliac Crest)', derived: true },
+      { id: 'rightPsis', label: 'Right PSIS (Iliac Crest)', derived: true },
+      { id: 'leftGreaterTrochanter', label: 'Left Greater Trochanter', derived: true },
+      { id: 'rightGreaterTrochanter', label: 'Right Greater Trochanter', derived: true },
       { id: 'leftDistalFemur', label: 'Left Distal Femur (Knee)', source: 'left_knee' },
       { id: 'rightDistalFemur', label: 'Right Distal Femur (Knee)', source: 'right_knee' }
     ];
 
     const connectors = [
+      // Torso
       { id: 'clavicleLeft', from: 'sternalNotch', to: 'leftShoulder', style: 'solid' },
       { id: 'clavicleRight', from: 'sternalNotch', to: 'rightShoulder', style: 'solid' },
-      { id: 'tenthRib', from: 'ribBase', to: 'sternalNotch', style: 'dashed' }
+      { id: 'torsoCenter', from: 'sternalNotch', to: 'pelvicCenter', style: 'dashed' },
+      // Pelvis
+      { id: 'iliacCrestLeft', from: 'leftAsis', to: 'leftPsis', style: 'solid' },
+      { id: 'iliacCrestRight', from: 'rightAsis', to: 'rightPsis', style: 'solid' },
+      { id: 'sacrum', from: 'leftPsis', to: 'rightPsis', style: 'solid' },
+      { id: 'inguinalLigament', from: 'leftAsis', to: 'rightAsis', style: 'solid' },
+      // Legs
+      { id: 'femurLeft', from: 'leftGreaterTrochanter', to: 'leftDistalFemur', style: 'solid' },
+      { id: 'femurRight', from: 'rightGreaterTrochanter', to: 'rightDistalFemur', style: 'solid' }
     ];
 
     function setStatus(el, text, variant) {
@@ -461,14 +474,44 @@
         score: averageScore(leftHip, rightHip)
       } : null;
 
+      // Pelvic coordinate system
+      const hipAxis = normalize(vector(leftHip, rightHip));
+      const up = normalize(vector(midHip, midShoulder));
+      const forward = { x: -up.y, y: up.x }; // Perpendicular to up vector
+      const hipWidth = distance(leftHip, rightHip);
+
+      // Anatomical offsets from hip center
+      const asisForward = 0.1 * hipWidth;
+      const asisUp = 0.05 * hipWidth;
+      const psisBackward = 0.15 * hipWidth;
+      const trochanterDown = 0.1 * hipWidth;
+      const trochanterOut = 0.08 * hipWidth;
+
+      const leftAsis = leftHip ? { x: leftHip.x + forward.x * asisForward + up.x * asisUp, y: leftHip.y + forward.y * asisForward + up.y * asisUp, score: leftHip.score } : null;
+      const rightAsis = rightHip ? { x: rightHip.x + forward.x * asisForward + up.x * asisUp, y: rightHip.y + forward.y * asisForward + up.y * asisUp, score: rightHip.score } : null;
+      const leftPsis = leftHip ? { x: leftHip.x - forward.x * psisBackward, y: leftHip.y - forward.y * psisBackward, score: leftHip.score } : null;
+      const rightPsis = rightHip ? { x: rightHip.x - forward.x * psisBackward, y: rightHip.y - forward.y * psisBackward, score: rightHip.score } : null;
+      const leftGT = leftHip ? { x: leftHip.x - up.x * trochanterDown - hipAxis.x * trochanterOut, y: leftHip.y - up.y * trochanterDown - hipAxis.y * trochanterOut, score: leftHip.score } : null;
+      const rightGT = rightHip ? { x: rightHip.x - up.x * trochanterDown + hipAxis.x * trochanterOut, y: rightHip.y - up.y * trochanterDown + hipAxis.y * trochanterOut, score: rightHip.score } : null;
+
+      const derivedPoints = {
+        sternalNotch,
+        ribBase,
+        pelvicCenter,
+        navel,
+        leftAsis,
+        rightAsis,
+        leftPsis,
+        rightPsis,
+        leftGreaterTrochanter: leftGT,
+        rightGreaterTrochanter: rightGT
+      };
+
       const items = landmarkList.map(def => {
         let point = null;
         let score = 1;
         if (def.derived) {
-          if (def.id === 'sternalNotch') point = sternalNotch;
-          if (def.id === 'ribBase') point = ribBase;
-          if (def.id === 'pelvicCenter') point = pelvicCenter;
-          if (def.id === 'navel') point = navel;
+          point = derivedPoints[def.id] || null;
           score = point?.score ?? 0;
         } else if (def.source && kp[def.source]) {
           point = { x: kp[def.source].x, y: kp[def.source].y };
@@ -502,6 +545,13 @@
     function midpoint(a, b) {
       if (!a || !b) return null;
       return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, score: averageScore(a, b) };
+    }
+
+    function normalize(v) {
+      if (!v) return { x: 0, y: 0 };
+      const len = Math.hypot(v.x, v.y);
+      if (len === 0) return { x: 0, y: 0 };
+      return { x: v.x / len, y: v.y / len };
     }
 
     function vector(a, b) {
