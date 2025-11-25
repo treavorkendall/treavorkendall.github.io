@@ -12,6 +12,7 @@ const resetViewBtn = document.getElementById('resetViewBtn');
 const modelSelect = document.getElementById('modelSelect');
 const exportCombinedBtn = document.getElementById('exportCombinedBtn');
 const exportSkeletonBtn = document.getElementById('exportSkeletonBtn');
+const skeletonBgSelect = document.getElementById('skeletonBgSelect');
 const canvasContainer = document.querySelector('.canvas-container');
 
 let currentImage = null;
@@ -305,7 +306,11 @@ exportSkeletonBtn.addEventListener('click', () => {
     exportCanvas.height = currentImage.height;
     const eCtx = exportCanvas.getContext('2d');
     
-    // Transparent background (default)
+    // Handle background
+    if (skeletonBgSelect.value === 'white') {
+        eCtx.fillStyle = 'white';
+        eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    }
     
     // Draw Overlays
     drawExport(eCtx, 1);
