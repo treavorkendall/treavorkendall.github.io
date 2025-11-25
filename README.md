@@ -7,4 +7,4 @@
 ## Art.
 
 - [Proportion Overlay Tool](https://treavorkendall.github.io/proportions6b.html)
-- [Figure Landmark Mapper](https://treavorkendall.github.io/landmarks.html)
+- [Figure Landmark Mapper](https://treavorkendall.github.io/posedetect/index.html)
