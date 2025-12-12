@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinetics & Reaction Order Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f4f9; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        /* Layout */
+        .controls { display: flex; gap: 20px; margin-bottom: 20px; align-items: flex-start; background: #f8f9fa; padding: 15px; border-radius: 6px; }
+        .input-group { flex: 1; }
+        textarea { width: 100%; height: 80px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 13px; }
+        button { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2980b9; }
+
+        /* Grid */
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-top: 20px; }
+        .chart-card { background: white; border: 1px solid #eee; border-radius: 8px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .chart-title { font-weight: bold; font-size: 1.1em; color: #2c3e50; }
+        .r-squared { font-family: monospace; font-weight: bold; padding: 2px 6px; border-radius: 4px; }
+        .best-fit { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+
+        /* Calculator Section */
+        .calc-box { margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; background: #fafafa; padding: 10px; border-radius: 4px; }
+        .calc-title { font-size: 0.85em; font-weight: bold; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+
+        /* Equation Styling */
+        .calc-equation {
+            background: #fff; border: 1px solid #ddd; padding: 8px;
+            border-radius: 4px; text-align: center; margin-bottom: 10px;
+            font-family: "Times New Roman", Times, serif; font-style: italic; font-size: 1.1em;
+            color: #444;
+        }
+
+        .calc-params { font-size: 0.85em; color: #666; margin-bottom: 8px; font-family: monospace; }
+        .calc-row { display: flex; gap: 10px; align-items: center; }
+        .calc-row input { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .calc-result { margin-top: 8px; font-weight: bold; color: #2c3e50; font-size: 0.95em; }
+
+        .stats-panel { margin-top: 20px; padding: 15px; background: #eef2f5; border-radius: 5px; border-left: 5px solid #3498db; }
+        .note { font-size: 0.85em; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🧪 Kinetics Analyzer & Order Calculator</h2>
+
+    <div class="controls">
+        <div class="input-group">
+            <label><strong>Input Data (CSV)</strong></label>
+            <textarea id="dataInput">0, 1.000
+10, 0.905
+20, 0.819
+30, 0.741
+40, 0.670
+50, 0.607
+60, 0.549
+70, 0.497
+80, 0.449
+90, 0.407
+100, 0.368</textarea>
+            <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+                <button onclick="parseAndPlot()">Analyze & Fit</button>
+                <input type="file" id="fileInput" accept=".csv, .txt">
+            </div>
+        </div>
+        <div class="input-group" style="flex: 0.7;">
+            <p style="margin:0 0 5px 0;"><strong>Instructions:</strong></p>
+            <ul class="note" style="margin:0; padding-left:20px;">
+                <li>Paste Time, Concentration data.</li>
+                <li>The tool fits linear regressions for 0, 1st, and 2nd order.</li>
+                <li>The <strong>correct order</strong> is highlighted in green (R² ≈ 1).</li>
+                <li>Use the calculator below the graphs to predict concentration.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="stats-panel" id="tangentStats" style="display:none;">
+        <strong>Interactive Analysis (Graph 1):</strong> <span id="statsOutput">Click a point on the [A] vs Time graph.</span>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-header">
+                <span class="chart-title">Zero Order ([A])</span>
+                <span id="r2-zero" class="r-squared">R²: -</span>
+            </div>
+            <canvas id="chartZero"></canvas>
+
+            <div class="calc-box">
+                <div class="calc-title">Predictor</div>
+                <div class="calc-equation">
+                    [A]<sub>t</sub> = -kt + [A]<sub>0</sub>
+                </div>
+
+                <div class="calc-params" id="params-zero">k = ?, [A]₀ = ?</div>
+                <div class="calc-row">
+                    <input type="number" id="t-zero" placeholder="Time t">
+                    <button onclick="predict(0)">Calc</button>
+                </div>
+                <div class="calc-result" id="res-zero">Result: -</div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <span class="chart-title">First Order (ln[A])</span>
+                <span id="r2-first" class="r-squared">R²: -</span>
+            </div>
+            <canvas id="chartFirst"></canvas>
+
+            <div class="calc-box">
+                <div class="calc-title">Predictor</div>
+                <div class="calc-equation">
+                    ln[A]<sub>t</sub> = -kt + ln[A]<sub>0</sub>
+                </div>
+
+                <div class="calc-params" id="params-first">k = ?, [A]₀ = ?</div>
+                <div class="calc-row">
+                    <input type="number" id="t-first" placeholder="Time t">
+                    <button onclick="predict(1)">Calc</button>
+                </div>
+                <div class="calc-result" id="res-first">Result: -</div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <span class="chart-title">Second Order (1/[A])</span>
+                <span id="r2-second" class="r-squared">R²: -</span>
+            </div>
+            <canvas id="chartSecond"></canvas>
+
+            <div class="calc-box">
+                <div class="calc-title">Predictor</div>
+                <div class="calc-equation">
+                    1 / [A]<sub>t</sub> = kt + 1 / [A]<sub>0</sub>
+                </div>
+
+                <div class="calc-params" id="params-second">k = ?, [A]₀ = ?</div>
+                <div class="calc-row">
+                    <input type="number" id="t-second" placeholder="Time t">
+                    <button onclick="predict(2)">Calc</button>
+                </div>
+                <div class="calc-result" id="res-second">Result: -</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let charts = {};
+    let mainData = [];
+    // Store regression results: { slope, intercept, k, a0, r2 }
+    let regressions = { 0: null, 1: null, 2: null };
+
+    function calculateRegression(data) {
+        let n = data.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+        data.forEach(p => {
+            sumX += p.x;
+            sumY += p.y;
+            sumXY += (p.x * p.y);
+            sumXX += (p.x * p.x);
+        });
+
+        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        // R-squared
+        const meanY = sumY / n;
+        let ssTot = 0, ssRes = 0;
+        data.forEach(p => {
+            const expectedY = slope * p.x + intercept;
+            ssTot += Math.pow(p.y - meanY, 2);
+            ssRes += Math.pow(p.y - expectedY, 2);
+        });
+        const r2 = 1 - (ssRes / ssTot);
+
+        return { slope, intercept, r2 };
+    }
+
+    // Parse Data and Plot
+    function parseAndPlot() {
+        const input = document.getElementById('dataInput').value.trim();
+        const lines = input.split('\n');
+
+        mainData = [];
+        let lnData = [];
+        let invData = [];
+
+        lines.forEach(line => {
+            const parts = line.split(/,|\t/);
+            if (parts.length >= 2) {
+                const t = parseFloat(parts[0]);
+                const c = parseFloat(parts[1]);
+                if (!isNaN(t) && !isNaN(c) && c > 0) {
+                    mainData.push({x: t, y: c});
+                    lnData.push({x: t, y: Math.log(c)});
+                    invData.push({x: t, y: 1/c});
+                }
+            }
+        });
+
+        if (mainData.length < 2) {
+            alert("Please enter at least 2 valid data points.");
+            return;
+        }
+
+        mainData.sort((a,b)=>a.x-b.x); lnData.sort((a,b)=>a.x-b.x); invData.sort((a,b)=>a.x-b.x);
+
+        // --- Perform Regressions ---
+
+        // Zero Order: [A] = -kt + [A]0
+        const r0 = calculateRegression(mainData);
+        regressions[0] = { ...r0, k: -r0.slope, a0: r0.intercept };
+
+        // First Order: ln[A] = -kt + ln[A]0
+        const r1 = calculateRegression(lnData);
+        regressions[1] = { ...r1, k: -r1.slope, a0: Math.exp(r1.intercept) };
+
+        // Second Order: 1/[A] = kt + 1/[A]0
+        const r2 = calculateRegression(invData);
+        regressions[2] = { ...r2, k: r2.slope, a0: 1/r2.intercept };
+
+        // --- Update UI ---
+        updateUI('r2-zero', 'params-zero', regressions[0]);
+        updateUI('r2-first', 'params-first', regressions[1]);
+        updateUI('r2-second', 'params-second', regressions[2]);
+
+        // Highlight Best Fit
+        const maxR2 = Math.max(regressions[0].r2, regressions[1].r2, regressions[2].r2);
+        highlightBest('r2-zero', regressions[0].r2, maxR2);
+        highlightBest('r2-first', regressions[1].r2, maxR2);
+        highlightBest('r2-second', regressions[2].r2, maxR2);
+
+        document.getElementById('tangentStats').style.display = 'block';
+
+        // Render Charts
+        renderChart('chartZero', mainData, '[A]', '#3498db', true);
+        renderLineChart('chartFirst', lnData, 'ln[A]', '#9b59b6', r1);
+        renderLineChart('chartSecond', invData, '1/[A]', '#e67e22', r2);
+    }
+
+    function updateUI(r2Id, paramId, reg) {
+        document.getElementById(r2Id).innerText = "R²: " + reg.r2.toFixed(4);
+        document.getElementById(paramId).innerHTML = `
+            k = ${reg.k.toExponential(3)} <br>
+            [A]₀ = ${reg.a0.toExponential(3)} M
+        `;
+    }
+
+    function highlightBest(id, val, max) {
+        const el = document.getElementById(id);
+        el.classList.toggle('best-fit', Math.abs(val - max) < 0.0001);
+    }
+
+    // Prediction Logic
+    function predict(order) {
+        const t = parseFloat(document.getElementById(order === 0 ? 't-zero' : order === 1 ? 't-first' : 't-second').value);
+        if (isNaN(t)) { alert("Please enter a valid time."); return; }
+
+        const r = regressions[order];
+        let conc = 0;
+
+        // Calculate using linear equation y = mx + b
+        const y_pred = r.slope * t + r.intercept;
+
+        if (order === 0) {
+            conc = y_pred;
+        } else if (order === 1) {
+            conc = Math.exp(y_pred);
+        } else if (order === 2) {
+            conc = 1 / y_pred;
+        }
+
+        const resId = order === 0 ? 'res-zero' : order === 1 ? 'res-first' : 'res-second';
+        document.getElementById(resId).innerHTML = `[A] at ${t}s: <br><span style="color:#2980b9">${conc.toExponential(4)} M</span>`;
+    }
+
+    // Charting Functions
+    function renderChart(id, data, label, color, interactive) {
+        if (charts[id]) charts[id].destroy();
+        const ctx = document.getElementById(id).getContext('2d');
+        charts[id] = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { label: 'Data', data: data, backgroundColor: color, borderColor: color, pointRadius: 4 },
+                    { label: 'Tangent', data: [], type: 'line', borderColor: '#e74c3c', borderWidth: 2, borderDash: [5,5], pointRadius: 0, fill: false }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: label } } },
+                onClick: interactive ? (e) => handleTangent(e, charts[id], data) : null,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function renderLineChart(id, data, label, color, reg) {
+        if (charts[id]) charts[id].destroy();
+        // Generate line points using regression
+        const lineData = [
+            { x: data[0].x, y: reg.slope * data[0].x + reg.intercept },
+            { x: data[data.length-1].x, y: reg.slope * data[data.length-1].x + reg.intercept }
+        ];
+        const ctx = document.getElementById(id).getContext('2d');
+        charts[id] = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { label: 'Data', data: data, backgroundColor: color, pointRadius: 4 },
+                    { label: 'Fit', data: lineData, type: 'line', borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0, fill: false }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: label } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function handleTangent(e, chart, data) {
+        const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+        if (points.length) {
+            const idx = points[0].index;
+            const p = data[idx];
+            let slope = 0;
+            // Central Difference
+            if (idx === 0) slope = (data[idx+1].y - p.y) / (data[idx+1].x - p.x);
+            else if (idx === data.length-1) slope = (p.y - data[idx-1].y) / (p.x - data[idx-1].x);
+            else slope = (data[idx+1].y - data[idx-1].y) / (data[idx+1].x - data[idx-1].x);
+
+            const xMin = chart.scales.x.min, xMax = chart.scales.x.max;
+            chart.data.datasets[1].data = [
+                { x: xMin, y: slope*(xMin - p.x) + p.y },
+                { x: xMax, y: slope*(xMax - p.x) + p.y }
+            ];
+            chart.update();
+            document.getElementById('statsOutput').innerHTML = `Time: <strong>${p.x}s</strong>, Rate: <strong style="color:#e74c3c">${(-slope).toExponential(3)} M/s</strong>`;
+        }
+    }
+
+    parseAndPlot();
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) { document.getElementById('dataInput').value = e.target.result; parseAndPlot(); };
+        reader.readAsText(file);
+    });
+</script>
+
+</body>
+</html>
