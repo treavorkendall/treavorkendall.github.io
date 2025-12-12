@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Arrhenius Equation Explorer</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#9aa4b2;
+      --accent:#60a5fa;
+      --glass: rgba(255,255,255,0.03);
+      --radius:10px;
+      color-scheme: dark;
+    }
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+    body{
+      background: linear-gradient(180deg,#071025 0%, #07162a 60%);
+      color:#e6eef8;
+      padding:24px;
+      box-sizing:border-box;
+    }
+    .container{
+      max-width:1100px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:20px;
+      align-items:start;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+    }
+    h1{margin:0 0 8px 0;font-size:20px;}
+    p.lead{margin:0 0 12px 0;color:var(--muted);font-size:13px;}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+    input[type="number"], select, input[type="text"]{
+      width:100%;
+      padding:8px 10px;
+      background:var(--glass);
+      border:1px solid rgba(255,255,255,0.03);
+      color:inherit;
+      border-radius:8px;
+      margin-top:6px;
+      box-sizing:border-box;
+    }
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+    .small{font-size:12px;color:var(--muted)}
+    .btn{
+      display:inline-block;padding:8px 12px;border-radius:8px;background:var(--accent);color:#02325c;border:none;
+      cursor:pointer;margin-top:12px;font-weight:600;
+    }
+    .muted{color:var(--muted);font-size:13px}
+    .output{
+      margin-top:12px;
+      background:rgba(255,255,255,0.02);
+      padding:12px;border-radius:8px;font-family:monospace;font-size:13px;
+    }
+    canvas{width:100% !important;height:360px !important;border-radius:8px;background:transparent}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:6px 8px;border-bottom:1px dashed rgba(255,255,255,0.02);text-align:left;font-size:13px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .inline{display:inline-block}
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    .flex{display:flex;gap:8px;align-items:center}
+    .badge{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px;font-size:13px}
+  </style>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="card" aria-labelledby="title">
+      <h1 id="title">Arrhenius Explorer</h1>
+      <p class="lead">Interactively explore k(T) from the Arrhenius equation, view ln(k) vs 1/T linearization, fit activation energy, and export data.</p>
+
+      <label for="A">Pre-exponential factor A (frequency factor)</label>
+      <input id="A" type="number" step="any" value="1e13" aria-describedby="Ahelp">
+      <div id="Ahelp" class="small muted">Units depend on reaction order (e.g., s⁻¹ for first order). Enter in scientific notation if needed.</div>
+
+      <label for="Ea">Activation energy Ea</label>
+      <div class="row">
+        <input id="Ea" type="number" step="any" value="50" />
+        <select id="eaUnit" aria-label="Ea units">
+          <option value="kJ">kJ / mol</option>
+          <option value="J">J / mol</option>
+        </select>
+      </div>
+
+      <label>Temperature range (Kelvin)</label>
+      <div class="row">
+        <input id="Tmin" type="number" value="250" step="any" />
+        <input id="Tmax" type="number" value="1000" step="any" />
+        <input id="Tstep" type="number" value="25" step="any" />
+      </div>
+
+      <div class="controls" style="margin-top:10px;">
+        <button id="updateBtn" class="btn">Compute & Plot</button>
+        <button id="randomExample" class="btn" style="background:#34d399;color:#02325c">Example</button>
+        <button id="exportCsv" class="btn" style="background:#fde68a;color:#123">Export CSV</button>
+        <label style="margin-left:auto" class="small muted">R = 8.314462618 J·mol⁻¹·K⁻¹</label>
+      </div>
+
+      <div class="output" id="results" aria-live="polite">
+        <div class="row">
+          <div class="badge">Fitted Ea: <span id="fittedEa">—</span></div>
+          <div class="badge">Fitted A (exp(intercept)): <span id="fittedA">—</span></div>
+        </div>
+        <div style="margin-top:8px" class="small muted">Linear fit performed on ln(k) vs 1/T. Ideal slope = -Ea/R.</div>
+      </div>
+
+      <details style="margin-top:12px">
+        <summary class="small muted">Formula & notes</summary>
+        <div class="small muted" style="margin-top:8px">
+          Arrhenius equation: k(T) = A · exp(-Ea / (R·T))<br>
+          Typical units: Ea in J·mol⁻¹ (or kJ·mol⁻¹), R = 8.314462618 J·mol⁻¹·K⁻¹, T in K.<br>
+          Fit: ln(k) = ln(A) - Ea/R · (1/T) → slope = -Ea/R.
+        </div>
+      </details>
+
+    </div>
+
+    <div class="card" aria-labelledby="plotTitle">
+      <h1 id="plotTitle">Plots & Table</h1>
+      <p class="lead">Top: k vs T (log scale option). Bottom: ln(k) vs 1/T with linear fit.</p>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <label class="small muted inline">k axis scale</label>
+        <select id="kScale" style="width:160px">
+          <option value="log">Log (recommended)</option>
+          <option value="linear">Linear</option>
+        </select>
+        <div style="flex:1"></div>
+        <label class="small muted">Points: <span id="npts">—</span></label>
+      </div>
+
+      <canvas id="kChart" aria-label="k versus T chart"></canvas>
+      <canvas id="lnkChart" style="margin-top:12px" aria-label="ln(k) versus 1/T chart"></canvas>
+
+      <div style="margin-top:12px">
+        <details>
+          <summary class="small muted">Data table</summary>
+          <div style="max-height:240px;overflow:auto;margin-top:8px">
+            <table id="dataTable" role="table" aria-label="computed data table">
+              <thead><tr><th>T (K)</th><th>1/T (K⁻¹)</th><th>k(T)</th><th>ln k</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+      <footer>Built for exploration — change inputs and click Compute. Default example: A=1e13 s⁻¹, Ea=50 kJ/mol.</footer>
+    </div>
+  </div>
+
+  <script>
+    // Arrhenius Explorer JavaScript
+    (function(){
+      const R = 8.314462618; // J / mol / K
+
+      // DOM
+      const Ael = document.getElementById('A');
+      const EaEl = document.getElementById('Ea');
+      const eaUnitEl = document.getElementById('eaUnit');
+      const TminEl = document.getElementById('Tmin');
+      const TmaxEl = document.getElementById('Tmax');
+      const TstepEl = document.getElementById('Tstep');
+      const updateBtn = document.getElementById('updateBtn');
+      const randomExample = document.getElementById('randomExample');
+      const exportCsv = document.getElementById('exportCsv');
+      const results = document.getElementById('results');
+      const fittedEa = document.getElementById('fittedEa');
+      const fittedA = document.getElementById('fittedA');
+      const kScale = document.getElementById('kScale');
+      const nptsEl = document.getElementById('npts');
+
+      const dataTableBody = document.querySelector('#dataTable tbody');
+
+      // Charts
+      const kCtx = document.getElementById('kChart').getContext('2d');
+      const lnkCtx = document.getElementById('lnkChart').getContext('2d');
+      let kChart, lnkChart;
+
+      function computeData(A, EaJ, Tmin, Tmax, step){
+        const points = [];
+        if (step <= 0) step = (Tmax - Tmin) / 50;
+        for(let T = Number(Tmin); T <= Number(Tmax) + 1e-8; T = +(T + Number(step)).toFixed(12)){
+          if (T <= 0) continue;
+          const k = A * Math.exp(-EaJ / (R * T));
+          points.push({
+            T: T,
+            invT: 1 / T,
+            k: k,
+            lnk: Math.log(k)
+          });
+          // Avoid infinite loops from FP drift
+          if (points.length > 2000) break;
+        }
+        return points;
+      }
+
+      function linearFit(x, y){
+        // simple least-squares fit y = m*x + b
+        const n = x.length;
+        if (n === 0) return null;
+        let sx=0, sy=0, sxx=0, sxy=0;
+        for(let i=0;i<n;i++){
+          sx += x[i];
+          sy += y[i];
+          sxx += x[i]*x[i];
+          sxy += x[i]*y[i];
+        }
+        const denom = (n * sxx - sx * sx);
+        if (Math.abs(denom) < 1e-16) return null;
+        const m = (n * sxy - sx * sy) / denom;
+        const b = (sy - m * sx) / n;
+        // compute r^2
+        let ssTot=0, ssRes=0;
+        const ymean = sy / n;
+        for(let i=0;i<n;i++){
+          const yi = y[i];
+          ssTot += (yi - ymean)**2;
+          ssRes += (yi - (m*x[i]+b))**2;
+        }
+        const r2 = ssTot === 0 ? 1 : 1 - ssRes/ssTot;
+        return {m,b,r2};
+      }
+
+      function formatSci(x){
+        if (!isFinite(x)) return '—';
+        if (Math.abs(x) === 0) return '0';
+        const exp = Math.floor(Math.log10(Math.abs(x)));
+        const coeff = x / Math.pow(10, exp);
+        return coeff.toFixed(4) + 'e' + exp;
+      }
+
+      function render(points){
+        // update table
+        dataTableBody.innerHTML = '';
+        for(const p of points){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${p.T.toFixed(4)}</td><td>${p.invT.toExponential(6)}</td><td>${formatSci(p.k)}</td><td>${p.lnk.toFixed(6)}</td>`;
+          dataTableBody.appendChild(tr);
+        }
+        nptsEl.textContent = points.length;
+
+        // k vs T chart
+        const labels = points.map(p => p.T.toFixed(2));
+        const kdata = points.map(p => p.k);
+        if (kChart) kChart.destroy();
+        kChart = new Chart(kCtx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'k(T)',
+              data: kdata,
+              borderColor: '#60a5fa',
+              backgroundColor: 'rgba(96,165,250,0.08)',
+              pointRadius: 2,
+              tension: 0.15
+            }]
+          },
+          options: {
+            responsive: true,
+            interaction: {mode: 'index', intersect:false},
+            scales:{
+              x:{
+                title:{display:true,text:'Temperature (K)'},
+                ticks:{maxRotation:0}
+              },
+              y:{
+                type: (kScale.value === 'log') ? 'logarithmic' : 'linear',
+                title:{display:true,text:'k'},
+                min: undefined
+              }
+            },
+            plugins:{
+              tooltip:{callbacks:{
+                label: ctx => `k = ${formatSci(ctx.parsed.y)}`
+              }},
+              legend:{display:false}
+            }
+          }
+        });
+
+        // ln(k) vs 1/T and fit
+        const x = points.map(p => p.invT);
+        const y = points.map(p => p.lnk);
+        const fit = linearFit(x,y);
+        const lineData = fit ? x.map(xx => ({x: xx, y: fit.m * xx + fit.b})) : [];
+        if (lnkChart) lnkChart.destroy();
+        lnkChart = new Chart(lnkCtx, {
+          type:'scatter',
+          data:{
+            datasets:[
+              {
+                label:'ln(k) (points)',
+                data: points.map(p => ({x: p.invT, y: p.lnk})),
+                pointRadius: 3,
+                borderColor:'#34d399',
+                backgroundColor:'#34d399',
+                showLine:false
+              },
+              fit ? {
+                label:'Linear fit',
+                data: lineData,
+                type:'line',
+                borderColor:'#f97316',
+                borderWidth:2,
+                pointRadius:0,
+                tension:0
+              } : null
+            ].filter(Boolean)
+          },
+          options:{
+            responsive:true,
+            scales:{
+              x:{
+                title:{display:true,text:'1/T (K⁻¹)'},
+              },
+              y:{
+                title:{display:true,text:'ln(k)'}
+              }
+            },
+            plugins:{
+              tooltip:{mode:'nearest'}
+            }
+          }
+        });
+
+        // display fitted values
+        if (fit){
+          const Ea_fit_J = -fit.m * R; // J/mol
+          const A_fit = Math.exp(fit.b);
+          const EaDisplay = (Ea_fit_J >= 1e3) ? (Ea_fit_J/1000).toFixed(3) + ' kJ/mol' : Ea_fit_J.toFixed(2) + ' J/mol';
+          fittedEa.textContent = `${EaDisplay} (R²=${fit.r2.toFixed(4)})`;
+          fittedA.textContent = `${formatSci(A_fit)}`;
+        } else {
+          fittedEa.textContent = '—';
+          fittedA.textContent = '—';
+        }
+      }
+
+      function getInputs(){
+        const A = Number(Ael.value);
+        let Ea = Number(EaEl.value);
+        const unit = eaUnitEl.value;
+        const Tmin = Number(TminEl.value);
+        const Tmax = Number(TmaxEl.value);
+        const step = Number(TstepEl.value);
+        const EaJ = (unit === 'kJ') ? Ea * 1000 : Ea;
+        return {A,Ea,EaJ,Tmin,Tmax,step};
+      }
+
+      function validate({A,EaJ,Tmin,Tmax,step}){
+        const errors = [];
+        if (!isFinite(A) || A <= 0) errors.push('A must be a positive number.');
+        if (!isFinite(EaJ) || EaJ < 0) errors.push('Ea must be a non-negative number.');
+        if (!isFinite(Tmin) || Tmin <= 0) errors.push('Tmin must be > 0 K.');
+        if (!isFinite(Tmax) || Tmax <= 0) errors.push('Tmax must be > 0 K.');
+        if (Tmax <= Tmin) errors.push('Tmax must be greater than Tmin.');
+        if (!isFinite(step) || step <= 0) errors.push('Step must be a positive number.');
+        return errors;
+      }
+
+      updateBtn.addEventListener('click', () => {
+        const params = getInputs();
+        const errs = validate(params);
+        if (errs.length){
+          alert('Input error:\n' + errs.join('\n'));
+          return;
+        }
+        const pts = computeData(params.A, params.EaJ, params.Tmin, params.Tmax, params.step);
+        render(pts);
+      });
+
+      kScale.addEventListener('change', () => {
+        // Recompute/refresh with new scale
+        updateBtn.click();
+      });
+
+      randomExample.addEventListener('click', () => {
+        // Provide some example sets
+        const examples = [
+          {A:1e13,Ea:50,unit:'kJ',Tmin:250,Tmax:1000,step:25}, // default
+          {A:2e10,Ea:80,unit:'kJ',Tmin:200,Tmax:900,step:20},
+          {A:1e7,Ea:200,unit:'kJ',Tmin:300,Tmax:1500,step:50},
+          {A:5e12,Ea:40,unit:'kJ',Tmin:220,Tmax:600,step:10},
+          {A:1e11,Ea:50000,unit:'J',Tmin:500,Tmax:2000,step:50}
+        ];
+        const ex = examples[Math.floor(Math.random() * examples.length)];
+        Ael.value = ex.A;
+        EaEl.value = ex.Ea;
+        eaUnitEl.value = ex.unit;
+        TminEl.value = ex.Tmin;
+        TmaxEl.value = ex.Tmax;
+        TstepEl.value = ex.step;
+        updateBtn.click();
+      });
+
+      exportCsv.addEventListener('click', () => {
+        // Build CSV from table
+        const rows = [];
+        rows.push(['T_K','invT_1_per_K','k','ln_k']);
+        const trs = dataTableBody.querySelectorAll('tr');
+        if (trs.length === 0){
+          alert('No data to export. Click Compute first.');
+          return;
+        }
+        trs.forEach(tr => {
+          const cells = tr.querySelectorAll('td');
+          rows.push([cells[0].textContent, cells[1].textContent, cells[2].textContent, cells[3].textContent]);
+        });
+        const csv = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'arrhenius_data.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+
+      // initial compute
+      updateBtn.click();
+
+    })();
+  </script>
+</body>
+</html>
