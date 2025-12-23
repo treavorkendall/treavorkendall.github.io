@@ -8,5 +8,5 @@
 ## Art.
 
 - [Proportion Overlay Tool](https://treavorkendall.github.io/proportions6b.html)
-- [Torso Pelvis Rotation](https://treavorkendall.github.io/sph_FINAL.html)
+- [Torso Pelvis Rotation](https://treavorkendall.github.io/bean.html)
 - [Figure Landmark Mapper](https://treavorkendall.github.io/posedetect/index.html)
