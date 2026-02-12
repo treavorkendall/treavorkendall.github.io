@@ -4,7 +4,7 @@
 - [Van der Waals Equation Visualizer](https://treavorkendall.github.io/vdw2.html)
 - [Projectile Motion Calculator](https://treavorkendall.github.io/projectile.html)
 - [Kinetics](https://treavorkendall.github.io/kinetics.html)
-- [Wave Boundary](https://treavorkendall.github.io/wave3.html)
+- [Wave Boundary](https://treavorkendall.github.io/wave2.html)
 
 ## Art.
 
