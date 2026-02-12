@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Wave Boundary Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 { margin-bottom: 5px; }
+        p.subtitle { margin-top: 0; color: #666; margin-bottom: 20px; }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto;
+            width: 100%; /* Responsive width */
+            max-width: 800px;
+        }
+
+        /* Grid for controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        span.val-display {
+            font-weight: 400;
+            color: #007bff;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .buttons {
+            grid-column: span 2;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        button {
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button:hover { background-color: #0056b3; }
+        button:active { transform: scale(0.98); }
+        button.secondary { background-color: #6c757d; }
+        button.secondary:hover { background-color: #545b62; }
+
+        .legend {
+            grid-column: span 2;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            font-size: 0.85em;
+            color: #555;
+            margin-top: 10px;
+            background: #eef2f5;
+            padding: 10px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Wave Boundary Physics</h1>
+        <p class="subtitle">Control density, damping, and time scale. Click canvas to pulse.</p>
+        
+        <canvas id="waveCanvas" width="800" height="400"></canvas>
+
+        <div class="controls">
+            
+            <div class="control-group">
+                <label for="density1">Left Density (&mu;) <span id="val_d1" class="val-display">1.0</span></label>
+                <input type="range" id="density1" min="1" max="10" step="0.5" value="1">
+            </div>
+
+            <div class="control-group">
+                <label for="density2">Right Density (&mu;) <span id="val_d2" class="val-display">4.0</span></label>
+                <input type="range" id="density2" min="1" max="10" step="0.5" value="4">
+            </div>
+
+            <div class="control-group">
+                <label for="damping">Damping Factor <span id="val_damping" class="val-display">0.995</span></label>
+                <input type="range" id="damping" min="900" max="1000" value="995">
+                <div style="font-size: 0.75em; color: #888; margin-top:4px;">Lower = Fast decay, 1.0 = No decay</div>
+            </div>
+
+            <div class="control-group">
+                <label for="speed">Sim Speed <span id="val_speed" class="val-display">2x</span></label>
+                <input type="range" id="speed" min="0" max="20" step="1" value="2">
+                <div style="font-size: 0.75em; color: #888; margin-top:4px;">0 = Pause, Higher = Fast Forward</div>
+            </div>
+
+            <div class="buttons">
+                <button onclick="sendPulse()">Send Pulse</button>
+                <button class="secondary" onclick="resetSimulation()">Stop & Reset</button>
+            </div>
+            
+            <div class="legend">
+                <div><strong>Note 1:</strong> $v = \sqrt{T/\mu}$</div>
+                <div><strong>Note 2:</strong> Low &to; High $\mu$ = Inverted Reflection</div>
+                <div><strong>Note 3:</strong> High &to; Low $\mu$ = Upright Reflection</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Simulation Constants
+    const NUM_POINTS = 400; 
+    const TENSION = 1.0;    
+    
+    // State Arrays
+    let u = new Float32Array(NUM_POINTS);
+    let uPrev = new Float32Array(NUM_POINTS);
+    let speeds = new Float32Array(NUM_POINTS);
+    
+    // Simulation State
+    let densityLeft = 1.0;
+    let densityRight = 4.0;
+    let damping = 0.995;
+    let simIterations = 2; // Steps per frame (Speed)
+    
+    let animationId;
+    let isRunning = true;
+
+    // Initialization
+    function init() {
+        u.fill(0);
+        uPrev.fill(0);
+        updateSpeeds();
+        updateUI();
+        
+        // Initial Pulse
+        createGaussianPulse(50, 80);
+        
+        if (!animationId) animate();
+    }
+
+    function updateSpeeds() {
+        const baseSpeed = 0.5; // Stability tuning
+        const v1 = baseSpeed * Math.sqrt(TENSION / densityLeft);
+        const v2 = baseSpeed * Math.sqrt(TENSION / densityRight);
+
+        for (let i = 0; i < NUM_POINTS; i++) {
+            speeds[i] = (i < NUM_POINTS / 2) ? v1 : v2;
+        }
+    }
+    
+    function updateUI() {
+        document.getElementById('val_d1').textContent = densityLeft.toFixed(1);
+        document.getElementById('val_d2').textContent = densityRight.toFixed(1);
+        document.getElementById('val_damping').textContent = damping.toFixed(3);
+        
+        const speedText = simIterations === 0 ? "Paused" : simIterations + "x";
+        document.getElementById('val_speed').textContent = speedText;
+    }
+
+    function createGaussianPulse(centerIndex, width) {
+        const amplitude = 150;
+        for (let i = 1; i < NUM_POINTS - 1; i++) {
+            let x = i - centerIndex;
+            let val = amplitude * Math.exp(-(x * x) / width);
+            
+            u[i] += val;
+            uPrev[i] += val; 
+            
+            // Bias previous frame to create right-ward velocity
+            uPrev[i] = u[i] - (val * (speeds[i] * 1.5) * (x / width)); 
+        }
+    }
+
+    function updatePhysics() {
+        let uNext = new Float32Array(NUM_POINTS);
+
+        for (let i = 1; i < NUM_POINTS - 1; i++) {
+            let c2 = speeds[i] * speeds[i];
+            let laplacian = u[i+1] + u[i-1] - 2 * u[i];
+            
+            // FDTD Update
+            let val = 2 * u[i] - uPrev[i] + c2 * laplacian;
+            
+            // Apply Dynamic Damping
+            uNext[i] = val * damping;
+        }
+
+        // Fixed Boundaries
+        uNext[0] = 0;
+        uNext[NUM_POINTS - 1] = 0;
+
+        uPrev.set(u);
+        u.set(uNext);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const cy = canvas.height / 2;
+        const dx = canvas.width / NUM_POINTS;
+
+        // Draw Boundary Line
+        ctx.beginPath();
+        ctx.strokeStyle = "#ccc";
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw Wave
+        ctx.beginPath();
+        ctx.moveTo(0, cy + u[0]);
+
+        for (let i = 0; i < NUM_POINTS; i++) {
+            let x = i * dx;
+            let y = cy - u[i]; 
+
+            // Split line at boundary for color change
+            if (i === Math.floor(NUM_POINTS/2)) {
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+            
+            if (i < NUM_POINTS / 2) {
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "#e74c3c"; // Red
+            } else {
+                ctx.lineWidth = 3 + (densityRight - densityLeft)*0.5; // Visual thickness
+                ctx.strokeStyle = "#2980b9"; // Blue
+            }
+
+            ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    }
+
+    function animate() {
+        if (!isRunning) return;
+
+        // Speed Control Loop
+        // We run the physics step 'simIterations' times before drawing once
+        for(let k=0; k < simIterations; k++) { 
+            updatePhysics();
+        }
+        
+        draw();
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // --- Event Listeners ---
+
+    // Density
+    document.getElementById('density1').addEventListener('input', (e) => {
+        densityLeft = parseFloat(e.target.value);
+        updateSpeeds();
+        updateUI();
+    });
+    document.getElementById('density2').addEventListener('input', (e) => {
+        densityRight = parseFloat(e.target.value);
+        updateSpeeds();
+        updateUI();
+    });
+
+    // Damping
+    document.getElementById('damping').addEventListener('input', (e) => {
+        // Slider 900-1000 -> 0.900-1.000
+        damping = parseInt(e.target.value) / 1000;
+        updateUI();
+    });
+
+    // Speed
+    document.getElementById('speed').addEventListener('input', (e) => {
+        simIterations = parseInt(e.target.value);
+        updateUI();
+    });
+
+    // Mouse Interaction
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        // Calculate scale factors in case canvas is resized via CSS
+        const scaleX = canvas.width / rect.width;
+        
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const idx = Math.floor((mouseX / canvas.width) * NUM_POINTS);
+        
+        createGaussianPulse(idx, 80);
+    });
+
+    // Buttons
+    function sendPulse() {
+        createGaussianPulse(50, 80);
+    }
+
+    function resetSimulation() {
+        u.fill(0);
+        uPrev.fill(0);
+        draw();
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>
