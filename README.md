@@ -5,6 +5,7 @@
 - [Projectile Motion Calculator](https://treavorkendall.github.io/projectile.html)
 - [Kinetics](https://treavorkendall.github.io/kinetics.html)
 - [Wave Boundary](https://treavorkendall.github.io/wave2.html)
+- [Galvanic Cell](https://ai.studio/apps/f0e1f7f3-ddcb-4e79-abcc-335919563b6e?fullscreenApplet=true)
 
 ## Art.
 
