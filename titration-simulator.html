@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Titration Bench — acid–base simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#08202F;
+  --panel:#0D2C40;
+  --panel-2:#11374E;
+  --line:#2A5C7C;
+  --line-soft:#1A4661;
+  --chalk:#EAF4F8;
+  --muted:#8FB4C8;
+  --amber:#FFB44D;
+  --glass:rgba(234,244,248,.70);
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+
+  --r:3px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--ink);
+  color:var(--chalk);
+  font-family:var(--f-body);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+  background-image:
+    linear-gradient(rgba(42,92,124,.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42,92,124,.14) 1px, transparent 1px);
+  background-size:28px 28px;
+}
+
+/* ---------- shell: fills the viewport, never scrolls on desktop ---------- */
+.app{
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  padding:12px 14px 14px;
+  gap:11px;
+}
+
+.masthead{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:18px;flex-wrap:wrap;flex:none;
+  border-bottom:1px solid var(--line);
+  padding-bottom:9px;
+}
+.title{
+  font-family:var(--f-display);
+  font-variation-settings:"wdth" 112,"wght" 700;
+  font-size:clamp(17px,2.1vw,25px);
+  line-height:1;letter-spacing:-.015em;text-transform:uppercase;margin:0;
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+}
+.title span{
+  font-variation-settings:"wdth" 85,"wght" 400;
+  font-size:.46em;letter-spacing:.22em;color:var(--muted);
+}
+.setup-label{
+  font-family:var(--f-data);font-size:11.5px;color:var(--muted);text-align:right;
+}
+.setup-label b{color:var(--chalk);font-weight:500}
+
+/* ---------- three columns, all visible at once ---------- */
+.stage{
+  flex:1;min-height:0;
+  display:grid;gap:12px;
+  grid-template-columns:minmax(180px,238px) minmax(0,1fr) minmax(252px,296px);
+}
+.card{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:var(--r);
+  display:flex;flex-direction:column;
+  min-height:0;min-width:0;
+}
+.card-head{
+  font-family:var(--f-data);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line-soft);
+  display:flex;justify-content:space-between;align-items:center;gap:8px;flex:none;
+}
+
+/* ---------- bench ---------- */
+.bench{flex:1;min-height:0;position:relative;padding:8px}
+.bench svg{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px)}
+.hair{stroke:var(--glass);fill:none;stroke-width:1.4}
+.hair-thin{stroke:rgba(234,244,248,.42);fill:none;stroke-width:1}
+.tick{stroke:rgba(234,244,248,.5);stroke-width:1}
+.tick-lg{stroke:rgba(234,244,248,.85);stroke-width:1.2}
+.tick-txt{fill:rgba(234,244,248,.6);font-family:var(--f-data);font-size:9px}
+.fill-titrant{fill:rgba(160,214,240,.30)}
+.solution{transition:fill .38s ease}
+@media (prefers-reduced-motion:reduce){.solution{transition:none}}
+
+/* ---------- instrument column ---------- */
+.readout{display:grid;grid-template-columns:1.1fr 1fr;gap:1px;background:var(--line-soft);flex:none}
+.rd{background:var(--panel);padding:10px 14px}
+.rd .k{font-family:var(--f-data);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.rd .v{font-family:var(--f-data);font-variant-numeric:tabular-nums;line-height:1}
+.rd.big .v{font-size:clamp(30px,4.4vw,46px);font-weight:500;margin-top:5px}
+.rd.vol .v{font-size:clamp(20px,2.6vw,27px);margin-top:7px}
+.rd .v small{font-size:.36em;color:var(--muted);margin-left:6px;letter-spacing:.06em}
+.region{
+  grid-column:1/-1;background:var(--panel);padding:7px 14px;
+  font-family:var(--f-data);font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  display:flex;align-items:center;gap:9px;color:var(--amber);
+}
+.region .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.region.calm{color:var(--muted)}
+
+.plot{flex:1;min-height:0;position:relative;border-top:1px solid var(--line-soft)}
+.plot svg{position:absolute;inset:0;width:100%;height:100%}
+.axis-line{stroke:var(--line);stroke-width:1}
+.grid-line{stroke:var(--line-soft);stroke-width:1}
+.axis-txt{fill:var(--muted);font-family:var(--f-data);font-size:10px}
+.axis-name{fill:var(--muted);font-family:var(--f-data);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase}
+.trace{fill:none;stroke:var(--chalk);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.ghost{fill:none;stroke:rgba(234,244,248,.22);stroke-width:1.4;stroke-dasharray:3 4}
+.eqline{stroke:var(--amber);stroke-width:1;stroke-dasharray:4 4;opacity:.75}
+.eqdot{fill:var(--amber)}
+.eqtxt{fill:var(--amber);font-family:var(--f-data);font-size:10px}
+.halftxt{fill:var(--muted);font-family:var(--f-data);font-size:10px}
+.buffer-band{fill:rgba(234,244,248,.045)}
+.buffer-edge{stroke:rgba(234,244,248,.2);stroke-width:1;stroke-dasharray:2 4}
+.head-now{fill:var(--chalk)}
+
+.species{
+  flex:none;border-top:1px solid var(--line-soft);padding:9px 14px 10px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+  gap:1px 20px;
+  font-family:var(--f-data);font-size:11.5px;font-variant-numeric:tabular-nums;
+}
+.species div{display:flex;justify-content:space-between;gap:10px}
+.species div span:first-child{color:var(--muted)}
+
+/* ---------- controls column ---------- */
+.controls{overflow-y:auto;overflow-x:hidden}
+.ctl{padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+.ctl:last-child{border-bottom:none}
+.ctl h3{
+  font-family:var(--f-data);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 9px;font-weight:500;
+}
+label.f{display:block;margin-bottom:9px}
+label.f:last-child{margin-bottom:0}
+label.f .lab{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+label.f .lab b{font-family:var(--f-data);color:var(--chalk);font-weight:500;font-variant-numeric:tabular-nums}
+
+select{
+  width:100%;background:var(--panel-2);color:var(--chalk);
+  border:1px solid var(--line);border-radius:var(--r);
+  padding:6px 8px;font-family:var(--f-body);font-size:12.5px;
+}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;background:transparent;margin:0;height:16px}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line)}
+input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--chalk);margin-top:-5.5px;cursor:grab;border:none}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--chalk);border:none;cursor:grab}
+
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+button{
+  font-family:var(--f-data);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--panel-2);color:var(--chalk);
+  border:1px solid var(--line);border-radius:var(--r);
+  padding:8px 6px;cursor:pointer;transition:background .12s,border-color .12s;
+}
+button:hover{background:#164561;border-color:var(--muted)}
+button:active{background:#1B5273}
+button.primary{background:var(--amber);color:#0A1E2B;border-color:var(--amber);font-weight:600}
+button.primary:hover{background:#FFC470}
+button.ghost{background:transparent}
+
+.toggle{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);cursor:pointer;margin-top:10px}
+.toggle input{accent-color:var(--amber);width:14px;height:14px;margin:0}
+
+.note{
+  flex:none;font-family:var(--f-data);font-size:10.5px;color:var(--muted);
+  line-height:1.55;border-top:1px solid var(--line);padding-top:7px;margin:0;
+}
+.note b{color:var(--chalk);font-weight:500}
+
+/* ---------- narrower screens ---------- */
+@media (max-width:1080px){
+  .stage{
+    grid-template-columns:minmax(150px,196px) minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr) auto;
+  }
+  .controls{grid-column:1/-1;overflow:visible}
+  .controls .card-head{display:none}
+  .controls-body{display:grid;grid-template-columns:repeat(3,1fr)}
+  .ctl{border-bottom:none;border-right:1px solid var(--line-soft)}
+  .ctl:last-child{border-right:none}
+}
+@media (max-width:780px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100dvh}
+  .stage{grid-template-columns:1fr;grid-template-rows:none}
+  .bench{height:38vh}
+  .plot{height:34vh}
+  .controls-body{grid-template-columns:1fr}
+  .ctl{border-right:none;border-bottom:1px solid var(--line-soft)}
+  .setup-label{text-align:left}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="masthead">
+    <h1 class="title">Titration bench<span>Acid–base simulator</span></h1>
+    <div class="setup-label" id="setupLabel"></div>
+  </header>
+
+  <div class="stage">
+
+    <!-- ============ BENCH ============ -->
+    <section class="card">
+      <div class="card-head"><span>Burette</span><span id="buretteState">50.00 mL</span></div>
+      <div class="bench">
+        <svg id="bench" viewBox="0 0 300 620" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="benchTitle">
+          <title id="benchTitle">Burette delivering titrant into a conical flask of analyte</title>
+          <defs>
+            <radialGradient id="bloomGrad">
+              <stop offset="0%"   id="bloomStop0" stop-color="#D63384" stop-opacity=".95"/>
+              <stop offset="55%"  id="bloomStop1" stop-color="#D63384" stop-opacity=".55"/>
+              <stop offset="100%" id="bloomStop2" stop-color="#D63384" stop-opacity="0"/>
+            </radialGradient>
+            <clipPath id="flaskClip"><path id="flaskClipPath" d=""/></clipPath>
+          </defs>
+
+          <!-- burette -->
+          <rect x="131" y="30" width="26" height="292" class="fill-titrant" id="buretteFill"/>
+          <path class="hair" d="M131 18 L131 322 M157 18 L157 322"/>
+          <path class="hair-thin" d="M128 18 L160 18"/>
+          <g id="buretteTicks"></g>
+          <!-- stopcock -->
+          <path class="hair" d="M131 322 L131 336 L157 336 L157 322"/>
+          <rect x="120" y="336" width="48" height="20" rx="2" class="hair"/>
+          <g id="stopcockHandle" style="transform-origin:144px 346px">
+            <path class="hair" d="M168 346 L186 346"/>
+            <circle cx="186" cy="346" r="5" class="hair"/>
+          </g>
+          <circle cx="144" cy="346" r="4" class="hair-thin"/>
+          <!-- tip -->
+          <path class="hair" d="M136 356 L141 378 L141 390 M152 356 L147 378 L147 390"/>
+
+          <!-- falling drop -->
+          <ellipse id="drop" cx="144" cy="392" rx="3.4" ry="4.6" fill="rgba(160,214,240,.85)" opacity="0"/>
+
+          <!-- flask -->
+          <g clip-path="url(#flaskClip)">
+            <path id="solution" class="solution" d="" fill="rgba(200,232,245,.12)"/>
+            <circle id="bloom" cx="144" cy="560" r="0" fill="url(#bloomGrad)" opacity="0"/>
+          </g>
+          <path class="hair" id="flaskOutline" d=""/>
+          <path class="hair-thin" d="M126 418 L162 418"/>
+          <g id="flaskTicks"></g>
+          <ellipse id="meniscus" cx="144" cy="586" rx="70" ry="3.5" fill="none" stroke="rgba(234,244,248,.5)" stroke-width="1"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ============ INSTRUMENT ============ -->
+    <section class="card">
+      <div class="readout">
+        <div class="rd big">
+          <div class="k">pH</div>
+          <div class="v" id="phVal">—</div>
+        </div>
+        <div class="rd vol">
+          <div class="k">Titrant added</div>
+          <div class="v" id="volVal">0.00 <small>mL</small></div>
+        </div>
+        <div class="region calm" id="regionBar"><span class="dot"></span><span id="regionText">Initial solution</span></div>
+      </div>
+
+      <div class="plot" id="plotBox">
+        <svg id="plot" viewBox="0 0 560 330" preserveAspectRatio="none" role="img" aria-labelledby="plotTitle">
+          <title id="plotTitle">Titration curve: pH against volume of titrant added</title>
+          <defs><linearGradient id="indGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" id="indStopA" stop-color="#D63384" stop-opacity=".28"/>
+            <stop offset="100%" id="indStopB" stop-color="#D63384" stop-opacity=".28"/>
+          </linearGradient></defs>
+          <g id="plotGrid"></g>
+          <rect id="indBand" x="0" y="0" width="0" height="0" fill="url(#indGrad)"/>
+          <rect id="bufBand" class="buffer-band" x="0" y="0" width="0" height="0"/>
+          <path id="bufEdges" class="buffer-edge" d=""/>
+          <path id="ghostCurve" class="ghost" d=""/>
+          <g id="markers"></g>
+          <path id="traceCurve" class="trace" d=""/>
+          <circle id="headDot" class="head-now" cx="0" cy="0" r="3.6" opacity="0"/>
+          <g id="plotAxes"></g>
+        </svg>
+      </div>
+
+      <div class="species" id="speciesBox"></div>
+    </section>
+
+    <!-- ============ CONTROLS ============ -->
+    <aside class="card controls">
+      <div class="card-head"><span>Setup</span></div>
+      <div class="controls-body">
+
+        <div class="ctl">
+          <h3>In the flask</h3>
+          <label class="f">
+            <span class="lab">Analyte</span>
+            <select id="analyte">
+              <optgroup label="Acids">
+                <option value="hcl">Hydrochloric acid — HCl (strong)</option>
+                <option value="acetic" selected>Acetic acid — CH₃COOH</option>
+                <option value="benzoic">Benzoic acid — C₆H₅COOH</option>
+                <option value="hypochlorous">Hypochlorous acid — HOCl</option>
+                <option value="maleic">Maleic acid — H₂C₄H₂O₄ (diprotic)</option>
+                <option value="carbonic">Carbonic acid — H₂CO₃ (diprotic)</option>
+              </optgroup>
+              <optgroup label="Bases">
+                <option value="naoh">Sodium hydroxide — NaOH (strong)</option>
+                <option value="ammonia">Ammonia — NH₃</option>
+                <option value="methylamine">Methylamine — CH₃NH₂</option>
+                <option value="pyridine">Pyridine — C₅H₅N</option>
+              </optgroup>
+            </select>
+          </label>
+          <label class="f">
+            <span class="lab">Concentration <b id="caOut">0.100 M</b></span>
+            <input type="range" id="ca" min="0.01" max="0.5" step="0.01" value="0.1">
+          </label>
+          <label class="f">
+            <span class="lab">Volume <b id="vaOut">25.0 mL</b></span>
+            <input type="range" id="va" min="10" max="50" step="1" value="25">
+          </label>
+        </div>
+
+        <div class="ctl">
+          <h3>In the burette</h3>
+          <label class="f">
+            <span class="lab">Titrant</span>
+            <select id="titrantSel"></select>
+          </label>
+          <label class="f">
+            <span class="lab">Concentration <b id="ctOut">0.100 M</b></span>
+            <input type="range" id="ct" min="0.01" max="0.5" step="0.01" value="0.1">
+          </label>
+          <label class="f">
+            <span class="lab">Indicator</span>
+            <select id="indicator">
+              <option value="none">None — colorless</option>
+              <option value="methylOrange">Methyl orange — 3.1 to 4.4</option>
+              <option value="bromocresolGreen">Bromocresol green — 3.8 to 5.4</option>
+              <option value="methylRed">Methyl red — 4.4 to 6.2</option>
+              <option value="bromothymolBlue">Bromothymol blue — 6.0 to 7.6</option>
+              <option value="phenolphthalein" selected>Phenolphthalein — 8.3 to 10.0</option>
+              <option value="thymolphthalein">Thymolphthalein — 9.4 to 10.6</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="ctl">
+          <h3>Deliver</h3>
+          <div class="btns">
+            <button class="primary" id="btnDrop">Drop 0.05</button>
+            <button id="btnAdd">Add 1.00</button>
+            <button id="btnFlow">Hold to flow</button>
+            <button class="ghost" id="btnReset">Reset</button>
+          </div>
+          <label class="f" style="margin-top:11px">
+            <span class="lab">Jump to volume <b id="scrubOut">0.00 mL</b></span>
+            <input type="range" id="scrub" min="0" max="50" step="0.05" value="0" aria-label="Jump to a volume of titrant added">
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="showFull">
+            <span>Show the full curve ahead</span>
+          </label>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="note" id="footnote"></p>
+</div>
+
+<script>
+"use strict";
+(function(){
+
+const KW = 1.0e-14;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------------------------------------------------------------
+   1. CHEMISTRY DATA
+   --------------------------------------------------------------- */
+const SPECIES = {
+  hcl:{name:"Hydrochloric acid",formula:"HCl",kind:"acid",strong:true,n:1},
+  acetic:{name:"Acetic acid",formula:"CH₃COOH",kind:"acid",strong:false,n:1,ka:[1.8e-5],conj:"CH₃COO⁻",acidForm:"CH₃COOH"},
+  benzoic:{name:"Benzoic acid",formula:"C₆H₅COOH",kind:"acid",strong:false,n:1,ka:[6.3e-5],conj:"C₆H₅COO⁻",acidForm:"C₆H₅COOH"},
+  hypochlorous:{name:"Hypochlorous acid",formula:"HOCl",kind:"acid",strong:false,n:1,ka:[3.0e-8],conj:"OCl⁻",acidForm:"HOCl"},
+  maleic:{name:"Maleic acid",formula:"H₂C₄H₂O₄",kind:"acid",strong:false,n:2,ka:[1.2e-2,5.9e-7],acidForm:"H₂M",midForm:"HM⁻",conj:"M²⁻"},
+  carbonic:{name:"Carbonic acid",formula:"H₂CO₃",kind:"acid",strong:false,n:2,ka:[4.3e-7,4.8e-11],acidForm:"H₂CO₃",midForm:"HCO₃⁻",conj:"CO₃²⁻"},
+
+  naoh:{name:"Sodium hydroxide",formula:"NaOH",kind:"base",strong:true,n:1},
+  ammonia:{name:"Ammonia",formula:"NH₃",kind:"base",strong:false,n:1,kb:1.8e-5,baseForm:"NH₃",conj:"NH₄⁺"},
+  methylamine:{name:"Methylamine",formula:"CH₃NH₂",kind:"base",strong:false,n:1,kb:4.4e-4,baseForm:"CH₃NH₂",conj:"CH₃NH₃⁺"},
+  pyridine:{name:"Pyridine",formula:"C₅H₅N",kind:"base",strong:false,n:1,kb:1.7e-9,baseForm:"C₅H₅N",conj:"C₅H₅NH⁺"}
+};
+
+const TITRANTS = {
+  naoh:{name:"Sodium hydroxide",formula:"NaOH",kind:"base"},
+  koh:{name:"Potassium hydroxide",formula:"KOH",kind:"base"},
+  hcl:{name:"Hydrochloric acid",formula:"HCl",kind:"acid"},
+  hno3:{name:"Nitric acid",formula:"HNO₃",kind:"acid"}
+};
+
+const INDICATORS = {
+  none:{label:"none",lo:6.5,hi:7.5,acid:[190,225,240,.10],base:[190,225,240,.10]},
+  methylOrange:{label:"methyl orange",lo:3.1,hi:4.4,acid:[214,63,44,.82],base:[240,178,42,.80]},
+  bromocresolGreen:{label:"bromocresol green",lo:3.8,hi:5.4,acid:[228,206,60,.78],base:[36,132,158,.82]},
+  methylRed:{label:"methyl red",lo:4.4,hi:6.2,acid:[206,53,48,.82],base:[238,196,60,.78]},
+  bromothymolBlue:{label:"bromothymol blue",lo:6.0,hi:7.6,acid:[224,196,48,.80],base:[38,110,190,.84]},
+  phenolphthalein:{label:"phenolphthalein",lo:8.3,hi:10.0,acid:[214,51,132,.06],base:[214,51,132,.80]},
+  thymolphthalein:{label:"thymolphthalein",lo:9.4,hi:10.6,acid:[62,86,182,.05],base:[62,86,182,.76]}
+};
+
+/* ---------------------------------------------------------------
+   2. STATE
+   --------------------------------------------------------------- */
+const S = {
+  analyteId:"acetic", titrantId:"naoh",
+  ca:0.10, va:25.0, ct:0.10,
+  indicatorId:"phenolphthalein",
+  vb:0, showFull:false, trace:[], maxVol:50
+};
+
+/* ---------------------------------------------------------------
+   3. pH SOLVER — exact charge balance, water autoionisation included
+   --------------------------------------------------------------- */
+function acidAnionCharge(C, ka, h){
+  if(ka.length === 1) return C * ka[0] / (ka[0] + h);
+  const [k1,k2] = ka;
+  const den = h*h + k1*h + k1*k2;
+  return C * (k1*h + 2*k1*k2) / den;
+}
+
+// f(h) is monotonically increasing in h in every case below, so bisection is safe.
+function solveH(f){
+  let lo = 1e-16, hi = 10;
+  if(f(lo) > 0) return lo;
+  if(f(hi) < 0) return hi;
+  for(let i=0;i<160;i++){
+    const mid = Math.sqrt(lo*hi);            // geometric bisection = bisection in pH
+    if(f(mid) > 0) hi = mid; else lo = mid;
+  }
+  return Math.sqrt(lo*hi);
+}
+
+function phAt(vb, va, ca, ct, sp){
+  const V = va + vb;
+  if(V <= 0) return 7;
+  let h;
+  if(sp.kind === "acid"){
+    const Cb = ct * vb / V;
+    if(sp.strong){
+      const D = (ca * va / V) * sp.n - Cb;
+      h = (D + Math.sqrt(D*D + 4*KW)) / 2;
+    }else{
+      const C = ca * va / V;
+      h = solveH(x => Cb + x - acidAnionCharge(C, sp.ka, x) - KW/x);
+    }
+  }else{
+    const Ca_t = ct * vb / V;
+    if(sp.strong){
+      const D = Ca_t - ca * va / V;
+      h = (D + Math.sqrt(D*D + 4*KW)) / 2;
+    }else{
+      const Ka = KW / sp.kb;
+      const C = ca * va / V;
+      h = solveH(x => C*x/(Ka + x) + x - Ca_t - KW/x);
+    }
+  }
+  const p = -Math.log10(Math.max(h, 1e-16));
+  return Math.min(14.4, Math.max(-0.4, p));
+}
+
+function ph(vb){ return phAt(vb, S.va, S.ca, S.ct, SPECIES[S.analyteId]); }
+function eqVolume(){ const sp = SPECIES[S.analyteId]; return sp.n * S.ca * S.va / S.ct; }
+
+/* ---------------------------------------------------------------
+   4. GEOMETRY — cone standing on its wide base
+   --------------------------------------------------------------- */
+const FLASK = {cx:144, base:586, top:418, halfBase:72, halfNeck:16, neckTop:392};
+const FLASK_H = FLASK.base - FLASK.top;
+const SLOPE = (FLASK.halfBase - FLASK.halfNeck) / FLASK_H;
+const CONE_K = 1/(3*SLOPE);
+const CONE_TOTAL = (Math.pow(FLASK.halfBase,3) - Math.pow(FLASK.halfNeck,3)) * CONE_K;
+const FLASK_ML = 190;
+
+function halfWidthAt(y){
+  if(y <= FLASK.top) return FLASK.halfNeck;
+  return FLASK.halfNeck + (y - FLASK.top) * SLOPE;
+}
+function surfaceY(mL){
+  const target = Math.min(mL, FLASK_ML) / FLASK_ML * CONE_TOTAL;
+  const cube = Math.pow(FLASK.halfBase,3) - target/CONE_K;
+  const w = Math.cbrt(Math.max(cube, Math.pow(FLASK.halfNeck,3)));
+  return FLASK.base - (FLASK.halfBase - w)/SLOPE;
+}
+function flaskPath(){
+  const {cx, base, top, halfBase, halfNeck, neckTop} = FLASK;
+  return `M${cx-halfNeck} ${neckTop} L${cx-halfNeck} ${top} L${cx-halfBase} ${base}
+          Q${cx-halfBase} ${base+8} ${cx-halfBase+9} ${base+8}
+          L${cx+halfBase-9} ${base+8} Q${cx+halfBase} ${base+8} ${cx+halfBase} ${base}
+          L${cx+halfNeck} ${top} L${cx+halfNeck} ${neckTop}`;
+}
+function solutionPath(mL){
+  const y = surfaceY(mL), w = halfWidthAt(y);
+  const {cx, base, halfBase} = FLASK;
+  return `M${cx-w} ${y} L${cx+w} ${y} L${cx+halfBase} ${base}
+          Q${cx+halfBase} ${base+8} ${cx+halfBase-9} ${base+8}
+          L${cx-halfBase+9} ${base+8} Q${cx-halfBase} ${base+8} ${cx-halfBase} ${base} Z`;
+}
+
+/* ---------------------------------------------------------------
+   5. COLOUR
+   --------------------------------------------------------------- */
+function smoothstep(t){ t = Math.min(1,Math.max(0,t)); return t*t*(3-2*t); }
+function indicatorColor(pHv, ind){
+  const t = smoothstep((pHv - ind.lo) / (ind.hi - ind.lo));
+  const c = [0,1,2,3].map(i => ind.acid[i] + (ind.base[i]-ind.acid[i])*t);
+  return {rgb:`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`, rgba:`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${c[3].toFixed(3)})`, a:c[3]};
+}
+
+/* ---------------------------------------------------------------
+   6. DOM
+   --------------------------------------------------------------- */
+const $ = id => document.getElementById(id);
+const el = {
+  buretteFill:$("buretteFill"), buretteTicks:$("buretteTicks"),
+  buretteState:$("buretteState"), stopcock:$("stopcockHandle"),
+  flaskOutline:$("flaskOutline"), flaskClip:$("flaskClipPath"), flaskTicks:$("flaskTicks"),
+  solution:$("solution"), meniscus:$("meniscus"), drop:$("drop"), bloom:$("bloom"),
+  bloomStops:[$("bloomStop0"),$("bloomStop1"),$("bloomStop2")],
+  phVal:$("phVal"), volVal:$("volVal"), regionBar:$("regionBar"), regionText:$("regionText"),
+  plotSvg:$("plot"), plotBox:$("plotBox"),
+  plotGrid:$("plotGrid"), plotAxes:$("plotAxes"), markers:$("markers"),
+  trace:$("traceCurve"), ghost:$("ghostCurve"), headDot:$("headDot"),
+  indBand:$("indBand"), indStopA:$("indStopA"), indStopB:$("indStopB"),
+  bufBand:$("bufBand"), bufEdges:$("bufEdges"),
+  species:$("speciesBox"),
+  setupLabel:$("setupLabel"), footnote:$("footnote"),
+  analyte:$("analyte"), ca:$("ca"), va:$("va"), ct:$("ct"),
+  titrantSel:$("titrantSel"), indicator:$("indicator"),
+  caOut:$("caOut"), vaOut:$("vaOut"), ctOut:$("ctOut"),
+  scrub:$("scrub"), scrubOut:$("scrubOut"), showFull:$("showFull"),
+  btnDrop:$("btnDrop"), btnAdd:$("btnAdd"), btnFlow:$("btnFlow"), btnReset:$("btnReset")
+};
+
+el.flaskOutline.setAttribute("d", flaskPath());
+el.flaskClip.setAttribute("d", flaskPath());
+
+(function drawBuretteTicks(){
+  let g = "";
+  for(let mark=0; mark<=50; mark++){
+    const y = 36 + (mark/50)*280;
+    const major = mark % 5 === 0;
+    const len = major ? 9 : 5;
+    g += `<line x1="157" y1="${y}" x2="${157+len}" y2="${y}" class="${major?'tick-lg':'tick'}"/>`;
+    if(major) g += `<text x="${157+len+3}" y="${y+3}" class="tick-txt">${mark}</text>`;
+  }
+  el.buretteTicks.innerHTML = g;
+})();
+
+(function drawFlaskTicks(){
+  let g = "";
+  [50,100,150].forEach(v=>{
+    const y = surfaceY(v), w = halfWidthAt(y);
+    g += `<line x1="${FLASK.cx+w-14}" y1="${y}" x2="${FLASK.cx+w-3}" y2="${y}" class="tick"/>`;
+    g += `<text x="${FLASK.cx+w-32}" y="${y+3}" class="tick-txt">${v}</text>`;
+  });
+  el.flaskTicks.innerHTML = g;
+})();
+
+/* ---------------------------------------------------------------
+   7. PLOT — viewBox tracks the container's real pixel size,
+             so the graph fills whatever space it is given.
+   --------------------------------------------------------------- */
+const P = {w:560, h:330, l:44, r:14, t:14, b:30};
+const px = v => P.l + (v / S.maxVol) * (P.w - P.l - P.r);
+const py = p => P.t + (1 - p/14) * (P.h - P.t - P.b);
+
+function fitPlot(){
+  const rect = el.plotBox.getBoundingClientRect();
+  P.w = Math.max(300, Math.round(rect.width));
+  P.h = Math.max(170, Math.round(rect.height));
+  el.plotSvg.setAttribute("viewBox", `0 0 ${P.w} ${P.h}`);
+}
+
+function niceStep(range){
+  const raw = range / 8;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+}
+
+function drawAxes(){
+  let grid = "", axes = "";
+  const pStep = (P.h < 240) ? 2 : 2;
+  for(let p=0; p<=14; p+=pStep){
+    grid += `<line x1="${P.l}" y1="${py(p)}" x2="${P.w-P.r}" y2="${py(p)}" class="grid-line"/>`;
+    axes += `<text x="${P.l-8}" y="${py(p)+3.5}" class="axis-txt" text-anchor="end">${p}</text>`;
+  }
+  const step = niceStep(S.maxVol);
+  for(let v=0; v<=S.maxVol+1e-9; v+=step){
+    grid += `<line x1="${px(v)}" y1="${P.t}" x2="${px(v)}" y2="${P.h-P.b}" class="grid-line"/>`;
+    axes += `<text x="${px(v)}" y="${P.h-P.b+14}" class="axis-txt" text-anchor="middle">${(+v.toFixed(2))}</text>`;
+  }
+  axes += `<line x1="${P.l}" y1="${P.t}" x2="${P.l}" y2="${P.h-P.b}" class="axis-line"/>`;
+  axes += `<line x1="${P.l}" y1="${P.h-P.b}" x2="${P.w-P.r}" y2="${P.h-P.b}" class="axis-line"/>`;
+  axes += `<text x="${P.w-P.r}" y="${P.h-4}" class="axis-name" text-anchor="end">mL titrant</text>`;
+  axes += `<text x="${P.l-8}" y="${P.t+2}" class="axis-name" text-anchor="end">pH</text>`;
+  el.plotGrid.innerHTML = grid;
+  el.plotAxes.innerHTML = axes;
+}
+
+function toPath(pts){
+  if(!pts.length) return "";
+  return pts.map((p,i)=> (i?"L":"M") + px(p.v).toFixed(2) + " " + py(p.ph).toFixed(2)).join(" ");
+}
+function fullCurve(){
+  const pts = [], N = 900;
+  for(let i=0;i<=N;i++){ const v = S.maxVol*i/N; pts.push({v, ph:ph(v)}); }
+  return pts;
+}
+
+function drawBands(){
+  const sp = SPECIES[S.analyteId], ind = INDICATORS[S.indicatorId];
+  if(S.indicatorId === "none"){
+    el.indBand.setAttribute("width", 0);
+  }else{
+    el.indStopA.setAttribute("stop-color", `rgb(${ind.acid.slice(0,3).map(n=>n|0).join(",")})`);
+    el.indStopB.setAttribute("stop-color", `rgb(${ind.base.slice(0,3).map(n=>n|0).join(",")})`);
+    el.indBand.setAttribute("x", P.l);
+    el.indBand.setAttribute("width", P.w - P.l - P.r);
+    el.indBand.setAttribute("y", py(ind.hi));
+    el.indBand.setAttribute("height", Math.max(0, py(ind.lo) - py(ind.hi)));
+  }
+  if(!sp.strong){
+    const veq1 = eqVolume() / sp.n;
+    const x0 = px(Math.min(0.1*veq1, S.maxVol));
+    const x1 = px(Math.min(0.9*veq1, S.maxVol));
+    el.bufBand.setAttribute("x", x0);
+    el.bufBand.setAttribute("width", Math.max(0, x1-x0));
+    el.bufBand.setAttribute("y", P.t);
+    el.bufBand.setAttribute("height", P.h - P.b - P.t);
+    el.bufEdges.setAttribute("d", `M${x0} ${P.t} L${x0} ${P.h-P.b} M${x1} ${P.t} L${x1} ${P.h-P.b}`);
+  }else{
+    el.bufBand.setAttribute("width", 0);
+    el.bufEdges.setAttribute("d", "");
+  }
+}
+
+function drawMarkers(){
+  const sp = SPECIES[S.analyteId];
+  const per = eqVolume() / sp.n;
+  let g = "";
+  for(let k=1; k<=sp.n; k++){
+    const v = per*k;
+    if(S.vb < v - 1e-9 || v > S.maxVol) continue;
+    const p = ph(v);
+    g += `<line x1="${px(v)}" y1="${P.t}" x2="${px(v)}" y2="${P.h-P.b}" class="eqline"/>`;
+    g += `<circle cx="${px(v)}" cy="${py(p)}" r="4" class="eqdot"/>`;
+    const anchor = px(v) > P.w*0.68 ? "end" : "start";
+    const dx = anchor === "end" ? -8 : 8;
+    g += `<text x="${px(v)+dx}" y="${py(p)-9}" class="eqtxt" text-anchor="${anchor}">Equivalence ${sp.n>1?k:""} · ${v.toFixed(2)} mL · pH ${p.toFixed(2)}</text>`;
+  }
+  if(!sp.strong){
+    for(let k=1; k<=sp.n; k++){
+      const v = per*(k-0.5);
+      if(S.vb < v - 1e-9 || v > S.maxVol) continue;
+      const p = ph(v);
+      g += `<circle cx="${px(v)}" cy="${py(p)}" r="2.6" fill="var(--muted)"/>`;
+      const lab = sp.kind === "acid"
+        ? `pH = pK${sp.n>1?"a"+k:"a"} = ${(-Math.log10(sp.ka[k-1])).toFixed(2)}`
+        : `pH = pKa = ${(-Math.log10(KW/sp.kb)).toFixed(2)}`;
+      g += `<text x="${px(v)}" y="${py(p)+16}" class="halftxt" text-anchor="middle">${lab}</text>`;
+    }
+  }
+  el.markers.innerHTML = g;
+}
+
+/* ---------------------------------------------------------------
+   8. RENDER
+   --------------------------------------------------------------- */
+function supers(n){
+  const map = {"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
+  return String(n).split("").map(c=>map[c]||c).join("");
+}
+function fmtSci(x){
+  if(x === 0) return "0";
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  return `${(x/Math.pow(10,e)).toFixed(2)}×10${supers(e)}`;
+}
+
+function regionOf(){
+  const sp = SPECIES[S.analyteId];
+  const per = eqVolume() / sp.n;
+  const f = S.vb / per;
+  if(S.vb < 1e-9) return {text:"Initial solution — nothing added yet", hot:false};
+  for(let k=1;k<=sp.n;k++){
+    if(Math.abs(S.vb - per*k) < Math.max(0.004, per*0.0015))
+      return {text:`Equivalence point ${sp.n>1?k:""}`.trim(), hot:true};
+  }
+  if(f > sp.n) return {text:"Past equivalence — excess titrant governs pH", hot:false};
+  const stage = Math.ceil(f), local = f - (stage-1);
+  if(!sp.strong && local > 0.1 && local < 0.9)
+    return {text:`Buffer region${sp.n>1?" "+stage:""} — pH resists change`, hot:false};
+  if((f > 0.94 && f < 1.06) || (sp.n>1 && f>1.94 && f<2.06))
+    return {text:"Approaching equivalence — pH climbing steeply", hot:true};
+  return {text:"Before equivalence", hot:false};
+}
+
+function speciesRows(){
+  const sp = SPECIES[S.analyteId], V = S.va + S.vb;
+  const p = ph(S.vb), h = Math.pow(10,-p);
+  const rows = [
+    ["pOH", (14-p).toFixed(2)],
+    ["[H₃O⁺]", fmtSci(h)+" M"],
+    ["[OH⁻]", fmtSci(KW/h)+" M"],
+    ["Total volume", V.toFixed(2)+" mL"],
+    [`mol ${sp.formula}`, fmtSci(S.ca*S.va/1000)],
+    [`mol ${TITRANTS[S.titrantId].formula} in`, fmtSci(S.ct*S.vb/1000)]
+  ];
+  if(!sp.strong){
+    const C = S.ca*S.va/V;
+    if(sp.kind === "acid"){
+      if(sp.n === 1){
+        const fA = sp.ka[0]/(sp.ka[0]+h);
+        rows.push([`[${sp.acidForm}]`, fmtSci(C*(1-fA))+" M"]);
+        rows.push([`[${sp.conj}]`, fmtSci(C*fA)+" M"]);
+      }else{
+        const [k1,k2] = sp.ka, den = h*h + k1*h + k1*k2;
+        rows.push([`[${sp.acidForm}]`, fmtSci(C*h*h/den)+" M"]);
+        rows.push([`[${sp.midForm}]`, fmtSci(C*k1*h/den)+" M"]);
+        rows.push([`[${sp.conj}]`, fmtSci(C*k1*k2/den)+" M"]);
+      }
+    }else{
+      const Ka = KW/sp.kb, fB = Ka/(Ka+h);
+      rows.push([`[${sp.baseForm}]`, fmtSci(C*fB)+" M"]);
+      rows.push([`[${sp.conj}]`, fmtSci(C*(1-fB))+" M"]);
+    }
+  }
+  el.species.innerHTML = rows.map(r=>`<div><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+}
+
+function render(){
+  const sp = SPECIES[S.analyteId], ind = INDICATORS[S.indicatorId];
+  const p = ph(S.vb);
+
+  el.phVal.textContent = p.toFixed(2);
+  el.volVal.innerHTML = S.vb.toFixed(2) + ' <small>mL</small>';
+  const reg = regionOf();
+  el.regionText.textContent = reg.text;
+  el.regionBar.classList.toggle("calm", !reg.hot);
+
+  el.solution.setAttribute("d", solutionPath(S.va + S.vb));
+  el.solution.setAttribute("fill", indicatorColor(p, ind).rgba);
+  const sy = surfaceY(S.va + S.vb);
+  el.meniscus.setAttribute("cy", sy);
+  el.meniscus.setAttribute("rx", halfWidthAt(sy));
+
+  const inBurette = 50 - (S.vb % 50);
+  const level = 36 + ((50 - inBurette)/50)*280;
+  el.buretteFill.setAttribute("y", level);
+  el.buretteFill.setAttribute("height", Math.max(0, 322 - level));
+  const refills = Math.floor(S.vb/50);
+  el.buretteState.textContent = inBurette.toFixed(2) + " mL left" + (refills ? ` · refill ${refills}` : "");
+
+  el.trace.setAttribute("d", toPath(S.trace));
+  el.ghost.setAttribute("d", S.showFull ? toPath(fullCurve()) : "");
+  if(S.trace.length){
+    el.headDot.setAttribute("cx", px(S.vb));
+    el.headDot.setAttribute("cy", py(p));
+    el.headDot.setAttribute("opacity", 1);
+  }else el.headDot.setAttribute("opacity", 0);
+
+  drawBands(); drawMarkers(); speciesRows();
+
+  const tit = TITRANTS[S.titrantId];
+  el.setupLabel.innerHTML =
+    `<b>${S.va.toFixed(1)} mL</b> of <b>${S.ca.toFixed(3)} M</b> ${sp.formula} ` +
+    `vs <b>${S.ct.toFixed(3)} M</b> ${tit.formula} &nbsp;·&nbsp; equivalence at <b>${eqVolume().toFixed(2)} mL</b>`;
+
+  const pEq = ph(eqVolume()/sp.n);
+  let verdict;
+  if(S.indicatorId === "none"){
+    verdict = "No indicator selected — the colour change is invisible, so the endpoint has to be found with a pH meter.";
+  }else{
+    const mid = (ind.lo+ind.hi)/2;
+    verdict = Math.abs(mid - pEq) < 1.0
+      ? `${ind.label} changes across pH ${ind.lo}–${ind.hi}, which brackets the first equivalence pH of ${pEq.toFixed(2)}. Good match — the endpoint lands on the steep part of the curve.`
+      : `${ind.label} changes across pH ${ind.lo}–${ind.hi}, but the first equivalence sits at pH ${pEq.toFixed(2)}. The colour turns ${mid < pEq ? "early" : "late"}, so the measured endpoint misses the true equivalence.`;
+  }
+  el.footnote.innerHTML = verdict + ` &nbsp;·&nbsp; Keys: <b>d</b> drop, <b>a</b> add 1 mL, <b>r</b> reset.`;
+}
+
+/* ---------------------------------------------------------------
+   9. ADDING TITRANT
+   --------------------------------------------------------------- */
+function traceTo(newVb){
+  const from = S.vb;
+  const steps = Math.max(1, Math.min(400, Math.ceil(Math.abs(newVb-from)/0.02)));
+  for(let i=1;i<=steps;i++){
+    const v = from + (newVb-from)*i/steps;
+    S.trace.push({v, ph:ph(v)});
+  }
+  S.vb = newVb;
+  el.scrub.value = S.vb.toFixed(2);
+  el.scrubOut.textContent = S.vb.toFixed(2)+" mL";
+}
+function rebuildTrace(){
+  S.trace = [];
+  if(S.vb > 0){
+    const steps = Math.min(900, Math.max(1, Math.ceil(S.vb/0.02)));
+    for(let i=0;i<=steps;i++){ const v = S.vb*i/steps; S.trace.push({v, ph:ph(v)}); }
+  }
+}
+
+// A drop lands in a small pocket of solution before it mixes into the bulk.
+function localPH(dropVol){
+  const f = 0.045;
+  return phAt(S.vb*f + dropVol, S.va*f, S.ca, S.ct, SPECIES[S.analyteId]);
+}
+
+function animateDrop(dropVol){
+  if(reduceMotion) return;
+  const sy = surfaceY(S.va + S.vb);
+  el.drop.setAttribute("opacity", 1);
+  el.drop.animate(
+    [{transform:"translateY(0px)", opacity:1},
+     {transform:`translateY(${(sy-396).toFixed(1)}px)`, opacity:1, offset:.88},
+     {transform:`translateY(${(sy-392).toFixed(1)}px)`, opacity:0}],
+    {duration:240, easing:"cubic-bezier(.4,0,.9,.6)", fill:"none"}
+  ).onfinish = () => { el.drop.setAttribute("opacity", 0); bloom(dropVol, sy); };
+}
+
+function bloom(dropVol, sy){
+  const ind = INDICATORS[S.indicatorId];
+  const localP = localPH(dropVol), bulkP = ph(S.vb);
+  const cLocal = indicatorColor(localP, ind), cBulk = indicatorColor(bulkP, ind);
+  if(Math.abs(localP - bulkP) < 0.35 || (cLocal.a < 0.12 && cBulk.a < 0.12)) return;
+  el.bloomStops.forEach(s => s.setAttribute("stop-color", cLocal.rgb));
+  el.bloom.setAttribute("cy", sy + 14);
+  el.bloom.animate(
+    [{r:3, opacity:.95},{r:34, opacity:.6, offset:.35},{r:74, opacity:0}],
+    {duration:1050, easing:"cubic-bezier(.2,.6,.3,1)", fill:"none"}
+  );
+}
+function turnStopcock(){
+  if(reduceMotion) return;
+  el.stopcock.animate([{transform:"rotate(0deg)"},{transform:"rotate(70deg)"},{transform:"rotate(0deg)"}],
+    {duration:340, easing:"ease-in-out"});
+}
+function deliver(vol){
+  const next = Math.min(S.maxVol, S.vb + vol);
+  if(next <= S.vb) return;
+  animateDrop(vol); traceTo(next); turnStopcock(); render();
+}
+
+/* ---------------------------------------------------------------
+   10. SETUP CHANGES
+   --------------------------------------------------------------- */
+function refreshTitrantOptions(){
+  const sp = SPECIES[S.analyteId];
+  const want = sp.kind === "acid" ? "base" : "acid";
+  const opts = Object.entries(TITRANTS).filter(([,t]) => t.kind === want);
+  if(!opts.some(([id]) => id === S.titrantId)) S.titrantId = opts[0][0];
+  el.titrantSel.innerHTML = opts.map(([id,t]) =>
+    `<option value="${id}"${id===S.titrantId?" selected":""}>${t.name} — ${t.formula} (strong)</option>`).join("");
+}
+function recomputeRange(){
+  S.maxVol = Math.max(10, Math.ceil(eqVolume() * 2 / 5) * 5);
+  el.scrub.max = S.maxVol.toFixed(2);
+  if(S.vb > S.maxVol) S.vb = S.maxVol;
+  drawAxes();
+}
+function resetTitration(){
+  S.vb = 0; S.trace = [];
+  el.scrub.value = 0; el.scrubOut.textContent = "0.00 mL";
+}
+function setupChanged(){ refreshTitrantOptions(); recomputeRange(); resetTitration(); render(); }
+
+/* ---------------------------------------------------------------
+   11. EVENTS
+   --------------------------------------------------------------- */
+el.analyte.addEventListener("change", e => { S.analyteId = e.target.value; setupChanged(); });
+el.titrantSel.addEventListener("change", e => { S.titrantId = e.target.value; setupChanged(); });
+el.indicator.addEventListener("change", e => { S.indicatorId = e.target.value; render(); });
+
+el.ca.addEventListener("input", e => { S.ca = +e.target.value; el.caOut.textContent = S.ca.toFixed(3)+" M"; recomputeRange(); rebuildTrace(); render(); });
+el.va.addEventListener("input", e => { S.va = +e.target.value; el.vaOut.textContent = S.va.toFixed(1)+" mL"; recomputeRange(); rebuildTrace(); render(); });
+el.ct.addEventListener("input", e => { S.ct = +e.target.value; el.ctOut.textContent = S.ct.toFixed(3)+" M"; recomputeRange(); rebuildTrace(); render(); });
+
+el.scrub.addEventListener("input", e => {
+  const v = Math.min(S.maxVol, +e.target.value);
+  if(v > S.vb) traceTo(v);
+  else { S.vb = v; rebuildTrace(); el.scrubOut.textContent = S.vb.toFixed(2)+" mL"; }
+  render();
+});
+el.showFull.addEventListener("change", e => { S.showFull = e.target.checked; render(); });
+el.btnDrop.addEventListener("click", () => deliver(0.05));
+el.btnAdd.addEventListener("click", () => deliver(1.00));
+el.btnReset.addEventListener("click", () => { resetTitration(); render(); });
+
+let flowTimer = null;
+function startFlow(ev){
+  if(ev.cancelable) ev.preventDefault();
+  if(flowTimer) return;
+  flowTimer = setInterval(() => {
+    if(S.vb >= S.maxVol){ stopFlow(); return; }
+    traceTo(Math.min(S.maxVol, S.vb + 0.05)); render();
+  }, 55);
+}
+function stopFlow(){ if(flowTimer){ clearInterval(flowTimer); flowTimer = null; } }
+["mousedown","touchstart"].forEach(t => el.btnFlow.addEventListener(t, startFlow, {passive:false}));
+["mouseup","mouseleave","touchend","touchcancel","blur"].forEach(t => el.btnFlow.addEventListener(t, stopFlow));
+el.btnFlow.addEventListener("keydown", e => { if(e.key===" "||e.key==="Enter") startFlow(e); });
+el.btnFlow.addEventListener("keyup", stopFlow);
+
+document.addEventListener("keydown", e => {
+  if(/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  if(e.key === "d") deliver(0.05);
+  if(e.key === "a") deliver(1.00);
+  if(e.key === "r"){ resetTitration(); render(); }
+});
+
+/* keep the graph filling its box at any window size */
+let fitPending = false;
+new ResizeObserver(() => {
+  if(fitPending) return;
+  fitPending = true;
+  requestAnimationFrame(() => { fitPending = false; fitPlot(); drawAxes(); render(); });
+}).observe(el.plotBox);
+
+/* ---------------------------------------------------------------
+   12. BOOT
+   --------------------------------------------------------------- */
+el.caOut.textContent = S.ca.toFixed(3)+" M";
+el.vaOut.textContent = S.va.toFixed(1)+" mL";
+el.ctOut.textContent = S.ct.toFixed(3)+" M";
+fitPlot();
+setupChanged();
+
+})();
+</script>
+</body>
+</html>
