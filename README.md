@@ -1,6 +1,7 @@
 # treavorkendall.github.io
 ## Science.
 
+- [Titration Simulator Claude](https://treavorkendall.github.io/titration-simulator.html
 - [Van der Waals Equation Visualizer](https://treavorkendall.github.io/vdw2.html)
 - [Projectile Motion Calculator](https://treavorkendall.github.io/projectile.html)
 - [Kinetics](https://treavorkendall.github.io/kinetics.html)
