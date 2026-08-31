@@ -1,6 +1,7 @@
 # treavorkendall.github.io
 ## Science.
 
+- [Balloon Baseball Motion](https://treavorkendall.github.io/balloon-baseball-sim.html)
 - [Titration Simulator Claude](https://treavorkendall.github.io/titration-simulator.html)
 - [Van der Waals Equation Visualizer](https://treavorkendall.github.io/vdw2.html)
 - [Projectile Motion Calculator](https://treavorkendall.github.io/projectile.html)
