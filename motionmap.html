@@ -1,0 +1,390 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Motion Diagram Simulation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fdfdf5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px 0;
+      color: #333;
+    }
+    h2 {
+      color: #4a235a;
+      margin-bottom: 12px;
+    }
+    canvas {
+      background: #ffffff;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .readout {
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 16px;
+      display: flex;
+      gap: 25px;
+    }
+    .controls-panel {
+      margin-top: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      background: #f4f6f9;
+      padding: 15px 25px;
+      border-radius: 8px;
+      border: 1px solid #e1e4e8;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      border: 1px solid #999;
+      border-radius: 4px;
+      background: #fff;
+    }
+    button:hover {
+      background: #eee;
+    }
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 30px;
+      row-gap: 8px;
+      font-size: 13px;
+    }
+    .car-box {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .car-box h4 {
+      margin: 0 0 8px 0;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+    .slider-row input[type="range"] {
+      width: 110px;
+    }
+    .slider-row span {
+      min-width: 45px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Comparing Motion Diagrams</h2>
+  <canvas id="canvas" width="700" height="260"></canvas>
+
+  <div class="readout">
+    <span id="readout-t">t = 0.00 s</span>
+    <span id="readout-x1" style="color: #c0392b;">x₁ = 0.00 m</span>
+    <span id="readout-x2" style="color: #2980b9;">x₂ = 0.00 m</span>
+  </div>
+
+  <div class="controls-panel">
+    <div class="btn-group">
+      <button id="btn-play">Play</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-step-back">&lt;&lt; Step</button>
+      <button id="btn-step-fwd">Step &gt;&gt;</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+
+    <!-- Interval setting -->
+    <div style="background: #eef3f8; padding: 8px 16px; border-radius: 6px; border: 1px solid #bcd; width: 100%; box-sizing: border-box; text-align: center;">
+      <label for="interval-slider"><strong>Dot Interval (&Delta;t):</strong></label>
+      <input type="range" id="interval-slider" min="0.1" max="2.0" step="0.1" value="0.5" />
+      <span id="val-dt">0.5 s</span>
+    </div>
+
+    <div class="sliders-grid">
+      <!-- Car 1 -->
+      <div class="car-box">
+        <h4 style="color: #c0392b;">Car 1 (Red) Initial Values</h4>
+        <div class="slider-row">
+          <label>Position (0 to 30 m):</label>
+          <input type="range" id="c1-x" min="0" max="30" step="1" value="0" />
+          <span id="c1-x-val">0 m</span>
+        </div>
+        <div class="slider-row">
+          <label>Velocity (0 to 10 m/s):</label>
+          <input type="range" id="c1-v" min="0" max="10" step="0.5" value="5" />
+          <span id="c1-v-val">5.0 m/s</span>
+        </div>
+        <div class="slider-row">
+          <label>Accel (-2 to 2 m/s²):</label>
+          <input type="range" id="c1-a" min="-2" max="2" step="0.1" value="0" />
+          <span id="c1-a-val">0.0 m/s²</span>
+        </div>
+      </div>
+
+      <!-- Car 2 -->
+      <div class="car-box">
+        <h4 style="color: #2980b9;">Car 2 (Blue) Initial Values</h4>
+        <div class="slider-row">
+          <label>Position (0 to 30 m):</label>
+          <input type="range" id="c2-x" min="0" max="30" step="1" value="0" />
+          <span id="c2-x-val">0 m</span>
+        </div>
+        <div class="slider-row">
+          <label>Velocity (0 to 10 m/s):</label>
+          <input type="range" id="c2-v" min="0" max="10" step="0.5" value="5" />
+          <span id="c2-v-val">5.0 m/s</span>
+        </div>
+        <div class="slider-row">
+          <label>Accel (-2 to 2 m/s²):</label>
+          <input type="range" id="c2-a" min="-2" max="2" step="0.1" value="0" />
+          <span id="c2-a-val">0.0 m/s²</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Grid / coordinate parameters
+    const originX = 60;
+    const originY = 210;
+    const axisLength = 580;
+    const xMax = 100; // meters
+    const scaleX = axisLength / xMax; // pixels per meter
+    const car1TrackY = 70;
+    const car2TrackY = 140;
+
+    let running = false;
+    let t = 0;
+    const dt = 0.02; // physical frame step (s)
+
+    // Inputs
+    const intervalSlider = document.getElementById("interval-slider");
+    const valDt = document.getElementById("val-dt");
+    const c1x = document.getElementById("c1-x");
+    const c1v = document.getElementById("c1-v");
+    const c1a = document.getElementById("c1-a");
+    const c2x = document.getElementById("c2-x");
+    const c2v = document.getElementById("c2-v");
+    const c2a = document.getElementById("c2-a");
+
+    function getPosition(x0, v0, a, time) {
+      return x0 + v0 * time + 0.5 * a * time * time;
+    }
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Grid lines
+      ctx.strokeStyle = "#cce5ff";
+      ctx.lineWidth = 1;
+
+      // Vertical grid lines (every 10m)
+      for (let m = 0; m <= 100; m += 10) {
+        const px = originX + m * scaleX;
+        ctx.beginPath();
+        ctx.moveTo(px, 30);
+        ctx.lineTo(px, originY);
+        ctx.stroke();
+      }
+
+      // Horizontal grid lines
+      for (let y = 30; y <= originY; y += 36) {
+        ctx.beginPath();
+        ctx.moveTo(originX, y);
+        ctx.lineTo(originX + axisLength, y);
+        ctx.stroke();
+      }
+
+      // X Axis
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(originX, originY);
+      ctx.lineTo(originX + axisLength + 15, originY);
+      ctx.stroke();
+
+      // Axis Arrow
+      ctx.beginPath();
+      ctx.moveTo(originX + axisLength + 15, originY);
+      ctx.lineTo(originX + axisLength + 5, originY - 5);
+      ctx.lineTo(originX + axisLength + 5, originY + 5);
+      ctx.fill();
+
+      // Axis Label
+      ctx.fillStyle = "#000";
+      ctx.font = "14px Arial";
+      ctx.fillText("x (m)", originX + axisLength + 22, originY + 5);
+
+      // Numbers on tick marks
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      for (let m = 0; m <= 100; m += 10) {
+        const px = originX + m * scaleX;
+        ctx.beginPath();
+        ctx.moveTo(px, originY);
+        ctx.lineTo(px, originY + 5);
+        ctx.stroke();
+        ctx.fillText(m, px, originY + 18);
+      }
+    }
+
+    function render() {
+      drawGrid();
+
+      const x01 = parseFloat(c1x.value);
+      const v01 = parseFloat(c1v.value);
+      const a1 = parseFloat(c1a.value);
+
+      const x02 = parseFloat(c2x.value);
+      const v02 = parseFloat(c2v.value);
+      const a2 = parseFloat(c2a.value);
+
+      const dotInterval = parseFloat(intervalSlider.value);
+
+      // Draw historical dots at intervals of dotInterval
+      const numDots = Math.floor((t + 1e-6) / dotInterval);
+
+      // Dots for Car 1
+      ctx.fillStyle = "rgba(192, 57, 43, 0.45)";
+      for (let i = 0; i <= numDots; i++) {
+        const ti = i * dotInterval;
+        const xi = getPosition(x01, v01, a1, ti);
+        const px = originX + xi * scaleX;
+        ctx.beginPath();
+        ctx.arc(px, car1TrackY, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Dots for Car 2
+      ctx.fillStyle = "rgba(41, 128, 185, 0.45)";
+      for (let i = 0; i <= numDots; i++) {
+        const ti = i * dotInterval;
+        const xi = getPosition(x02, v02, a2, ti);
+        const px = originX + xi * scaleX;
+        ctx.beginPath();
+        ctx.arc(px, car2TrackY, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Current positions
+      const currentX1 = getPosition(x01, v01, a1, t);
+      const currentX2 = getPosition(x02, v02, a2, t);
+
+      // Current Car 1 marker
+      ctx.fillStyle = "#c0392b";
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(originX + currentX1 * scaleX, car1TrackY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Current Car 2 marker
+      ctx.fillStyle = "#2980b9";
+      ctx.beginPath();
+      ctx.arc(originX + currentX2 * scaleX, car2TrackY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Update UI readouts
+      document.getElementById("readout-t").textContent = `t = ${t.toFixed(2)} s`;
+      document.getElementById("readout-x1").textContent = `x₁ = ${currentX1.toFixed(2)} m`;
+      document.getElementById("readout-x2").textContent = `x₂ = ${currentX2.toFixed(2)} m`;
+    }
+
+    function tick() {
+      if (running) {
+        t += dt;
+        // Stop if both exceed boundaries or reach max range
+        const x1 = getPosition(parseFloat(c1x.value), parseFloat(c1v.value), parseFloat(c1a.value), t);
+        const x2 = getPosition(parseFloat(c2x.value), parseFloat(c2v.value), parseFloat(c2a.value), t);
+
+        if ((x1 > 105 && x2 > 105) || t > 30) {
+          running = false;
+        }
+        render();
+        requestAnimationFrame(tick);
+      }
+    }
+
+    // Button Listeners
+    document.getElementById("btn-play").onclick = () => {
+      if (!running) {
+        running = true;
+        tick();
+      }
+    };
+
+    document.getElementById("btn-pause").onclick = () => {
+      running = false;
+    };
+
+    document.getElementById("btn-step-fwd").onclick = () => {
+      running = false;
+      const step = parseFloat(intervalSlider.value);
+      t += step;
+      render();
+    };
+
+    document.getElementById("btn-step-back").onclick = () => {
+      running = false;
+      const step = parseFloat(intervalSlider.value);
+      t = Math.max(0, t - step);
+      render();
+    };
+
+    document.getElementById("btn-reset").onclick = () => {
+      running = false;
+      t = 0;
+      render();
+    };
+
+    // Slider Listeners
+    intervalSlider.oninput = (e) => {
+      valDt.textContent = `${parseFloat(e.target.value).toFixed(1)} s`;
+      render();
+    };
+
+    function attachSlider(slider, readout, suffix) {
+      slider.oninput = (e) => {
+        readout.textContent = `${e.target.value} ${suffix}`;
+        if (!running) render();
+      };
+    }
+
+    attachSlider(c1x, document.getElementById("c1-x-val"), "m");
+    attachSlider(c1v, document.getElementById("c1-v-val"), "m/s");
+    attachSlider(c1a, document.getElementById("c1-a-val"), "m/s²");
+    attachSlider(c2x, document.getElementById("c2-x-val"), "m");
+    attachSlider(c2v, document.getElementById("c2-v-val"), "m/s");
+    attachSlider(c2a, document.getElementById("c2-a-val"), "m/s²");
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
+
+```
+
+Save this code into an `.html` file (e.g., `motion_simulation.html`) and open it in any web browser.
+
+The slider labeled **Dot Interval ($\Delta t$)** dynamically configures the strobe frequency (from 0.1 s to 2.0 s), instantly adjusting the spacing and density of the historical dots left along the position tracks.
